@@ -25,7 +25,7 @@ GLdouble GLHelper::delta_time;
 std::string GLHelper::title;
 GLFWwindow* GLHelper::ptr_window;
 
-
+//print specs
 void GLHelper::print_specs()
 {
     //Output info about your graphics card//
