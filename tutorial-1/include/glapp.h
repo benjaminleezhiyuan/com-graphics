@@ -14,6 +14,8 @@ configuring cameras (in later labs),
 and transformations (in later labs).
 *//*__________________________________________________________________________*/
 
+#include <glslshader.h>
+
 /*                                                                      guard
 ----------------------------------------------------------------------------- */
 #ifndef GLAPP_H
@@ -23,10 +25,27 @@ and transformations (in later labs).
 ----------------------------------------------------------------------------- */
 
 struct GLApp {
+  // previous existing declarations
   static void init();
   static void update();
   static void draw();
   static void cleanup();
+// encapsulates state required to render a geometrical model
+  struct GLModel {
+	  GLenum primitive_type; // which OpenGL primitive to be rendered?
+	  GLSLShader shdr_pgm; // which shader program?
+	  GLuint vaoid; // handle to VAO
+	  GLuint idx_elem_cnt; // how many elements of primitive of type
+	  // primitive_type are to be rendered
+	  // member functions defined in glapp.cpp
+	  void setup_vao();
+	  void setup_shdrpgm();
+	  void draw();
+  };
+  // data member to represent geometric model to be rendered
+  // C++ requires this object to have a definition in glapp.cpp!!!
+  static GLModel mdl;
+
 };
 
 #endif /* GLAPP_H */

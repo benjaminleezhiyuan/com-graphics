@@ -76,6 +76,11 @@ void GLHelper::print_specs()
     glGetIntegerv(GL_MAX_ELEMENTS_INDICES, &max_index);
     std::cout << "Maximum Indeces Count: " << max_index << std::endl;
 
+    //max vertex attributes
+    GLint max_vtx_attribs;
+    glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &max_vtx_attribs);
+    std::cout << "Maximum vertex attributes: " << max_vtx_attribs << '\n';
+
     //Largest texture map dimension handled by current OpenGL context
     GLint tex_size;
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &tex_size);
