@@ -63,7 +63,7 @@ void GLHelper::print_specs()
     //check for double buffer
     GLint double_buffer;
     glGetIntegerv(GL_DOUBLEBUFFER, &double_buffer);
-    if (double_buffer == true) std::cout << "Current OpenGL Context is double buffered" << std::endl;
+    if (double_buffer == 1) std::cout << "Current OpenGL Context is double buffered" << std::endl;
     else std::cout << "Current OpenGL Context is not double buffered" << std::endl;
 
     //max vertex count

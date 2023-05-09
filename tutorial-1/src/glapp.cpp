@@ -25,15 +25,19 @@ GLfloat randomColor1[4];
 GLfloat randomColor2[4];
 GLfloat interpolatedColor[4];
 float interpolationFactor = 0.0f;
-const float interpolationDuration = 10.0f; // time to interpolate in seconds
+const float interpolationDuration = 10.0f;
+struct GLApp::GLModel GLApp::mdl;
 
 /*                                                   objects with file scope
 ----------------------------------------------------------------------------- */
 void GLApp::init() {
 	// Part 1: clear colorbuffer with RGBA value in glClearColor ...
-	glClearColor(0.f, 1.f, 0.f, 1.f);
-	// Part 2: use entire window as viewport ...
+	glClearColor(1.f, 0.f, 0.f, 1.f);
+	// Part 2: use the entire window as viewport ...
 	glViewport(0, 0, GLHelper::width, GLHelper::height);
+	// Part 3: initialize VAO and create shader program
+	mdl.setup_vao();
+	mdl.setup_shdrpgm();
 
 	//generate random color values for the two colors
 	randomColor1[0] = static_cast <GLfloat> (rand()) / static_cast <GLfloat> (RAND_MAX); // random value between 0 and 1
@@ -48,7 +52,7 @@ void GLApp::init() {
 }
 
 void GLApp::update() {
-	interpolationFactor += 0.0167 / interpolationDuration;
+	interpolationFactor += 0.0167f / interpolationDuration;
 
 	if (interpolationFactor > 1.0f) 
 	{
@@ -73,15 +77,17 @@ void GLApp::update() {
 	glClearColor(interpolatedColor[0], interpolatedColor[1], interpolatedColor[2], interpolatedColor[3]);
 	glClear(GL_COLOR_BUFFER_BIT);
 }
-
+ 
 void GLApp::draw() {
-  // empty for now
+	// clear back buffer as before
+	glClear(GL_COLOR_BUFFER_BIT);
+	// now, render rectangular model from NDC coordinates to viewport
+	mdl.draw();
 }
 
 void GLApp::cleanup() {
   // empty for now
 }
-
 
 void GLApp::GLModel::setup_vao()
 {
@@ -144,10 +150,38 @@ void GLApp::GLModel::setup_vao()
 	glBindVertexArray(0);
 }
 
-void GLApp::GLModel::setup_shdrpgm()
-{
+void GLApp::GLModel::setup_shdrpgm() {
+	std::vector<std::pair<GLenum, std::string>> shdr_files;
+	shdr_files.emplace_back(std::make_pair(
+		GL_VERTEX_SHADER,
+		"../shaders/my-tutorial-1.vert"));
+	shdr_files.emplace_back(std::make_pair(
+		GL_FRAGMENT_SHADER,
+		"../shaders/my-tutorial-1.frag"));
+	shdr_pgm.CompileLinkValidate(shdr_files);
+	if (GL_FALSE == shdr_pgm.IsLinked()) {
+		std::cout << "Unable to compile/link/validate shader programs" << "\n";
+		std::cout << shdr_pgm.GetLog() << std::endl;
+		std::exit(EXIT_FAILURE);
+	}
 }
 
-void GLApp::GLModel::draw()
-{
+void GLApp::GLModel::draw() {
+	// there are many shader programs initialized - here we're saying
+	// which specific shader program should be used to render geometry
+	shdr_pgm.Use();
+	// there are many models, each with their own initialized VAO object
+	// here, we're saying which VAO's state should be used to set up pipe
+	glBindVertexArray(vaoid);
+	// here, we're saying what primitive is to be rendered and how many
+	// such primitives exist.
+	// the graphics driver knows where to get the indices because the VAO
+	// containing this state information has been made current ...
+	glDrawElements(primitive_type, idx_elem_cnt, GL_UNSIGNED_SHORT, NULL);
+	// after completing the rendering, we tell the driver that VAO
+	// vaoid and current shader program are no longer current
+	glBindVertexArray(0);
+	shdr_pgm.UnUse();
 }
+
+
