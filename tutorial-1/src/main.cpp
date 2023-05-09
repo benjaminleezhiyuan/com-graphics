@@ -101,7 +101,7 @@ abstracted away in GLApp::init
 */
 static void init() {
   // Part 1
-  if (!GLHelper::init(1920, 1080, "Tutorial 1")) {
+  if (!GLHelper::init(2400, 1350, "Tutorial 1")) {
     std::cout << "Unable to create OpenGL context" << std::endl;
     std::exit(EXIT_FAILURE);
   }
