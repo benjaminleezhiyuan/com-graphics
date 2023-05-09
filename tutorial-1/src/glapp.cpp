@@ -25,7 +25,7 @@ GLfloat randomColor1[4];
 GLfloat randomColor2[4];
 GLfloat interpolatedColor[4];
 float interpolationFactor = 0.0f;
-const float interpolationDuration = 2.0f; // time to interpolate in seconds
+const float interpolationDuration = 10.0f; // time to interpolate in seconds
 
 /*                                                   objects with file scope
 ----------------------------------------------------------------------------- */
