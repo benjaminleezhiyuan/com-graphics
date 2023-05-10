@@ -32,10 +32,10 @@ struct GLApp {
   static void cleanup();
 // encapsulates state required to render a geometrical model
   struct GLModel {
-	  GLenum primitive_type; // which OpenGL primitive to be rendered?
+	  GLenum primitive_type = GL_TRIANGLES; // which OpenGL primitive to be rendered?
 	  GLSLShader shdr_pgm; // which shader program?
-	  GLuint vaoid; // handle to VAO
-	  GLuint idx_elem_cnt; // how many elements of primitive of type
+	  GLuint vaoid{ 0 }; // handle to VAO
+	  GLuint idx_elem_cnt{ 0 }; // how many elements of primitive of type
 	  // primitive_type are to be rendered
 	  // member functions defined in glapp.cpp
 	  void setup_vao();
