@@ -84,7 +84,9 @@ void GLApp::draw() {
 	glClear(GL_COLOR_BUFFER_BIT);
 	// now, render rectangular model from NDC coordinates to viewport
 	mdl.draw();
-	char tmp[100];
+
+	//Output to window bar title
+	char tmp[128];
 	sprintf(tmp, "Tutorial 1 | Benjamin Lee | %.2f", GLHelper::fps);
 	glfwSetWindowTitle(GLHelper::ptr_window, tmp);
 }
