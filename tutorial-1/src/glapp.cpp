@@ -52,6 +52,7 @@ void GLApp::init() {
 }
 
 void GLApp::update() {
+
 	interpolationFactor += 0.0167f / interpolationDuration;
 
 	if (interpolationFactor > 1.0f) 
@@ -83,6 +84,9 @@ void GLApp::draw() {
 	glClear(GL_COLOR_BUFFER_BIT);
 	// now, render rectangular model from NDC coordinates to viewport
 	mdl.draw();
+	char tmp[100];
+	sprintf(tmp, "Tutorial 1 | Benjamin Lee | %.2f", GLHelper::fps);
+	glfwSetWindowTitle(GLHelper::ptr_window, tmp);
 }
 
 void GLApp::cleanup() {

@@ -25,6 +25,8 @@ GLdouble GLHelper::delta_time;
 std::string GLHelper::title;
 GLFWwindow* GLHelper::ptr_window;
 
+
+
 /*  _________________________________________________________________________ */
 /*! print_specs
     
