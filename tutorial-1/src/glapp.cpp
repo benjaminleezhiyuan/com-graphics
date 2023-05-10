@@ -33,8 +33,10 @@ float interpolationFactor = 0.0f;
 const float interpolationDuration = 10.0f;
 struct GLApp::GLModel GLApp::mdl;
 
-/*                                                   objects with file scope
------------------------------------------------------------------------------ */
+/*	init
+* 
+*	Initialises neccesary variables and functions at the start of game loop.
+*/
 void GLApp::init() {
 	// Part 1: clear colorbuffer with RGBA value in glClearColor ...
 	glClearColor(1.f, 0.f, 0.f, 1.f);
@@ -56,6 +58,10 @@ void GLApp::init() {
 	randomColor2[3] = 1.0f;
 }
 
+/*	update
+* 
+*	Updates variables every game loop
+*/
 void GLApp::update() {
 
 	interpolationFactor += 0.0167f / interpolationDuration;
@@ -74,6 +80,7 @@ void GLApp::update() {
 		randomColor2[2] = static_cast <GLfloat> (rand()) / static_cast <GLfloat> (RAND_MAX);
 		randomColor2[3] = 1.0f;
 	}
+	//Colour to be rendered.
 	interpolatedColor[0] = (1.0f - interpolationFactor) * randomColor1[0] + interpolationFactor * randomColor2[0];
 	interpolatedColor[1] = (1.0f - interpolationFactor) * randomColor1[1] + interpolationFactor * randomColor2[1];
 	interpolatedColor[2] = (1.0f - interpolationFactor) * randomColor1[2] + interpolationFactor * randomColor2[2];
@@ -84,6 +91,10 @@ void GLApp::update() {
 	glClear(GL_COLOR_BUFFER_BIT);
 }
  
+/*	GLApp::draw
+* 
+*	Renders objects set in the buffer
+*/
 void GLApp::draw() {
 	// clear back buffer as before
 	glClear(GL_COLOR_BUFFER_BIT);
@@ -100,6 +111,11 @@ void GLApp::cleanup() {
   // empty for now
 }
 
+/*	setup_vao
+	
+	Vertex Array Object setup for both position and coor attributes
+
+*/
 void GLApp::GLModel::setup_vao()
 {
 	//Define vertex pos and colour attributes
@@ -161,6 +177,10 @@ void GLApp::GLModel::setup_vao()
 	glBindVertexArray(0);
 }
 
+/*	setup_shdrpgm
+	
+	Compiles the shaders and links the shader objects into a shader program.
+*/
 void GLApp::GLModel::setup_shdrpgm() {
 	std::vector<std::pair<GLenum, std::string>> shdr_files;
 	shdr_files.emplace_back(std::make_pair(
@@ -177,6 +197,10 @@ void GLApp::GLModel::setup_shdrpgm() {
 	}
 }
 
+/*	GLApp::GLModel::draw
+* 
+*	Renders model, issues draw calls to graphics hardware
+*/
 void GLApp::GLModel::draw() {
 	// there are many shader programs initialized - here we're saying
 	// which specific shader program should be used to render geometry
