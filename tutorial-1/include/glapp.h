@@ -3,6 +3,10 @@
 @author  pghali@digipen.edu
 @date    10/11/2016
 
+@co-author	benjaminzhiyuan.lee@digipen.edu
+@date		10/05/2023
+@ammendent	Added declarations for shader functions and GLModel srtuct.
+
 This file contains the declaration of namespace GLApp that encapsulates the
 functionality required to implement an OpenGL application including 
 compiling, linking, and validating shader programs

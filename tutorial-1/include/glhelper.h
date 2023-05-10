@@ -3,6 +3,10 @@
 @author  pghali@digipen.edu
 @date    10/11/2016
 
+@co-author	benjaminzhiyuan.lee@digipen.edu
+@date		10/05/2023
+@ammendent	Added declarations for function print_specs.
+
 This file contains the declaration of namespace Helper that encapsulates the
 functionality required to create an OpenGL context using GLFW; use GLEW
 to load OpenGL extensions; initialize OpenGL state; and finally initialize

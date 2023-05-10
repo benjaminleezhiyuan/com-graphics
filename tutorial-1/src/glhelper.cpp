@@ -3,6 +3,10 @@
 @author  pghali@digipen.edu
 @date    10/11/2016
 
+@co-author	benjaminzhiyuan.lee@digipen.edu
+@date		10/05/2023
+@ammendent  Added function declaration for print_specs
+
 This file implements functionality useful and necessary to build OpenGL
 applications including use of external APIs such as GLFW to create a
 window and start up an OpenGL context and use GLEW to extract function 
