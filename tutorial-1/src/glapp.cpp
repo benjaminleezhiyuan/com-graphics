@@ -30,7 +30,7 @@ GLfloat randomColor1[4];
 GLfloat randomColor2[4];
 GLfloat interpolatedColor[4];
 float interpolationFactor = 0.0f;
-const float interpolationDuration = 10.0f;
+const float interpolationDuration = 1.5f;
 struct GLApp::GLModel GLApp::mdl;
 
 /*	init
@@ -63,8 +63,11 @@ void GLApp::init() {
 *	Updates variables every game loop
 */
 void GLApp::update() {
-
-	interpolationFactor += 0.0167f / interpolationDuration;
+	static double startTime = glfwGetTime();
+	double elapsedTime = glfwGetTime() - startTime;
+	if (elapsedTime >= 1.0) {
+		interpolationFactor += (1.0f / (float)GLHelper::fps) / interpolationDuration;
+	}
 
 	if (interpolationFactor > 1.0f) 
 	{
