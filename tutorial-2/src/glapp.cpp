@@ -24,13 +24,6 @@ to OpenGL implementations.
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 
-
-//variables for colour change
-GLfloat randomColor1[4];
-GLfloat randomColor2[4];
-GLfloat interpolatedColor[4];
-float interpolationFactor = 0.0f;
-const float interpolationDuration = 1.5f;
 struct GLApp::GLModel GLApp::mdl;
 
 /*	init
@@ -45,17 +38,6 @@ void GLApp::init() {
 	// Part 3: initialize VAO and create shader program
 	mdl.setup_vao();
 	mdl.setup_shdrpgm();
-
-	//generate random color values for the two colors
-	randomColor1[0] = static_cast <GLfloat> (rand()) / static_cast <GLfloat> (RAND_MAX); // random value between 0 and 1
-	randomColor1[1] = static_cast <GLfloat> (rand()) / static_cast <GLfloat> (RAND_MAX);
-	randomColor1[2] = static_cast <GLfloat> (rand()) / static_cast <GLfloat> (RAND_MAX);
-	randomColor1[3] = 1.0f;
-
-	randomColor2[0] = static_cast <GLfloat> (rand()) / static_cast <GLfloat> (RAND_MAX); // random value between 0 and 1
-	randomColor2[1] = static_cast <GLfloat> (rand()) / static_cast <GLfloat> (RAND_MAX);
-	randomColor2[2] = static_cast <GLfloat> (rand()) / static_cast <GLfloat> (RAND_MAX);
-	randomColor2[3] = 1.0f;
 }
 
 /*	update
@@ -63,32 +45,6 @@ void GLApp::init() {
 *	Updates variables every game loop
 */
 void GLApp::update() {
-	static double startTime = glfwGetTime();
-	double elapsedTime = glfwGetTime() - startTime;
-	if (elapsedTime >= 1.0) {
-		interpolationFactor += (1.0f / (float)GLHelper::fps) / interpolationDuration;
-	}
-
-	if (interpolationFactor > 1.0f) 
-	{
-		interpolationFactor = 0.0f;
-		// Set current colour
-		randomColor1[0] = randomColor2[0];
-		randomColor1[1] = randomColor2[1];
-		randomColor1[2] = randomColor2[2];
-		randomColor1[3] = randomColor2[3];
-		// Set new random colour
-		randomColor2[0] = static_cast <GLfloat> (rand()) / static_cast <GLfloat> (RAND_MAX);
-		randomColor2[1] = static_cast <GLfloat> (rand()) / static_cast <GLfloat> (RAND_MAX);
-		randomColor2[2] = static_cast <GLfloat> (rand()) / static_cast <GLfloat> (RAND_MAX);
-		randomColor2[3] = 1.0f;
-	}
-	//Colour to be rendered.
-	interpolatedColor[0] = (1.0f - interpolationFactor) * randomColor1[0] + interpolationFactor * randomColor2[0];
-	interpolatedColor[1] = (1.0f - interpolationFactor) * randomColor1[1] + interpolationFactor * randomColor2[1];
-	interpolatedColor[2] = (1.0f - interpolationFactor) * randomColor1[2] + interpolationFactor * randomColor2[2];
-	interpolatedColor[3] = (1.0f - interpolationFactor) * randomColor1[3] + interpolationFactor * randomColor2[3];
-
 	// Clear the color buffer with the interpolated color
 	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
@@ -145,19 +101,19 @@ void GLApp::GLModel::setup_vao()
 	// encapsulate information about contents of VBO and VBO handle
 	// to another object called VAO
 	glCreateVertexArrays(1, &vaoid);
-	// for vertex position array, we use vertex attribute index 8
+	// for vertex position array, we use vertex attribute index 0
 	// and vertex buffer binding point 3
-	glEnableVertexArrayAttrib(vaoid, 8);
+	glEnableVertexArrayAttrib(vaoid, 0);
 	glVertexArrayVertexBuffer(vaoid, 3, vbo_hdl, 0, sizeof(glm::vec2));
-	glVertexArrayAttribFormat(vaoid, 8, 2, GL_FLOAT, GL_FALSE, 0);
-	glVertexArrayAttribBinding(vaoid, 8, 3);
-	// for vertex color array, we use vertex attribute index 9
+	glVertexArrayAttribFormat(vaoid, 0, 2, GL_FLOAT, GL_FALSE, 0);
+	glVertexArrayAttribBinding(vaoid, 0, 3);
+	// for vertex color array, we use vertex attribute index 1
 	// and vertex buffer binding point 4
-	glEnableVertexArrayAttrib(vaoid, 9);
+	glEnableVertexArrayAttrib(vaoid, 1);
 	glVertexArrayVertexBuffer(vaoid, 4, vbo_hdl,
 		sizeof(glm::vec2) * pos_vtx.size(), sizeof(glm::vec3));
-	glVertexArrayAttribFormat(vaoid, 9, 3, GL_FLOAT, GL_FALSE, 0);
-	glVertexArrayAttribBinding(vaoid, 9, 4);
+	glVertexArrayAttribFormat(vaoid, 1, 3, GL_FLOAT, GL_FALSE, 0);
+	glVertexArrayAttribBinding(vaoid, 1, 4);
 
 	primitive_type = GL_TRIANGLES;
 	// represents indices of vertices that will define 2 triangles with
