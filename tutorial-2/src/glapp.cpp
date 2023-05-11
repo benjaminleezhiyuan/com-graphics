@@ -90,7 +90,7 @@ void GLApp::update() {
 	interpolatedColor[3] = (1.0f - interpolationFactor) * randomColor1[3] + interpolationFactor * randomColor2[3];
 
 	// Clear the color buffer with the interpolated color
-	glClearColor(interpolatedColor[0], interpolatedColor[1], interpolatedColor[2], interpolatedColor[3]);
+	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 }
  
@@ -188,10 +188,10 @@ void GLApp::GLModel::setup_shdrpgm() {
 	std::vector<std::pair<GLenum, std::string>> shdr_files;
 	shdr_files.emplace_back(std::make_pair(
 		GL_VERTEX_SHADER,
-		"../shaders/my-tutorial-1.vert"));
+		"../shaders/my-tutorial-2.vert"));
 	shdr_files.emplace_back(std::make_pair(
 		GL_FRAGMENT_SHADER,
-		"../shaders/my-tutorial-1.frag"));
+		"../shaders/my-tutorial-2.frag"));
 	shdr_pgm.CompileLinkValidate(shdr_files);
 	if (GL_FALSE == shdr_pgm.IsLinked()) {
 		std::cout << "Unable to compile/link/validate shader programs" << "\n";
