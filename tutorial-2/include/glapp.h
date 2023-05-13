@@ -36,26 +36,33 @@ struct GLApp {
   static void cleanup();
 // encapsulates state required to render a geometrical model
   struct GLModel {
-	  GLenum primitive_type = GL_TRIANGLES; // which OpenGL primitive to be rendered?
-	  GLSLShader shdr_pgm; // which shader program?
-	  GLuint vaoid{ 0 }; // handle to VAO
-	  GLuint idx_elem_cnt{ 0 }; // how many elements of primitive of type
-	  // primitive_type are to be rendered
-	  // member functions defined in glapp.cpp
-	  void setup_vao();
-	  void setup_shdrpgm();
-	  void draw();
-  };
+GLenum primitive_type; // same as tutorial 1
+GLuint primitive_cnt; // added for tutorial 2
+GLuint vaoid; // same as tutorial 1
+//GLuint idx_elem_cnt; // removed for tutorial 2
+GLuint draw_cnt; // added for tutorial 2
+GLSLShader shdr_pgm; // same as tutorial 1
+//void setup_vao(); // removed for tutorial 2
+//void setup_shdrpgm(); // removed for tutorial 2
+void setup_shdrpgm(std::string vtx_shdr, // added to tutorial 2
+std::string frg_shdr);
+void draw(); // same as tutorial 1
+};
+//static GLModel mdl; // removed for tutorial 2
+// container for different types of geometries required in tutorial 2
+static std::vector<GLModel> models;
+// tutorial 2's replacement for setup_vao for GL_POINT primitives
+static GLApp::GLModel points_model(std::string vtx_shdr,
+std::string frg_shdr);
+
 
   struct GLViewport {
-GLint x, y;
-GLsizei width, height;
-};
-static std::vector<GLViewport> vps; // container for viewports
+	  GLint x, y;
+	  GLsizei width, height;
+  };
+  static std::vector<GLViewport> vps; // container for viewports
   // data member to represent geometric model to be rendered
   // C++ requires this object to have a definition in glapp.cpp!!!
-  static GLModel mdl;
-
 };
 
 #endif /* GLAPP_H */
