@@ -25,6 +25,8 @@ to OpenGL implementations.
 #include <glm/vec3.hpp>
 
 struct GLApp::GLModel GLApp::mdl;
+std::vector<GLApp::GLViewport> GLApp::vps;
+
 
 /*	init
 * 
@@ -33,8 +35,17 @@ struct GLApp::GLModel GLApp::mdl;
 void GLApp::init() {
 	// Part 1: clear colorbuffer with RGBA value in glClearColor ...
 	glClearColor(1.f, 0.f, 0.f, 1.f);
-	// Part 2: use the entire window as viewport ...
-	glViewport(0, 0, GLHelper::width, GLHelper::height);
+
+	GLint w{ GLHelper::width }, h{ GLHelper::height };
+	// push top-left viewport's specification in vps ...
+	vps.push_back({ GLViewport(0, h / 2, w / 2, h / 2) });
+	// push top-right viewport's specification in vps ...
+	vps.push_back({ GLViewport(w / 2,h / 2,w / 2, h / 2) });
+	// push bottom-left viewport's specification in vps ...
+	vps.push_back({ GLViewport(0, 0, w / 2,h / 2) });
+	// push bottom-right viewport's specification in vps ...
+	vps.push_back({ GLViewport(w / 2, 0 / 2, w / 2, h / 2) });
+
 	// Part 3: initialize VAO and create shader program
 	mdl.setup_vao();
 	mdl.setup_shdrpgm();
@@ -58,8 +69,11 @@ void GLApp::draw() {
 	// clear back buffer as before
 	glClear(GL_COLOR_BUFFER_BIT);
 	// now, render rectangular model from NDC coordinates to viewport
-	mdl.draw();
-
+	for (const auto& vp : GLApp::vps) {
+		glViewport(vp.x, vp.y, vp.width, vp.height);
+		// your drawing code goes here
+		mdl.draw();
+	}
 	//Output to window bar title
 	char tmp[128];
 	sprintf(tmp, "Tutorial 1 | Benjamin Lee | %.2f", GLHelper::fps);

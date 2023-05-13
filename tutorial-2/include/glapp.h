@@ -46,6 +46,12 @@ struct GLApp {
 	  void setup_shdrpgm();
 	  void draw();
   };
+
+  struct GLViewport {
+GLint x, y;
+GLsizei width, height;
+};
+static std::vector<GLViewport> vps; // container for viewports
   // data member to represent geometric model to be rendered
   // C++ requires this object to have a definition in glapp.cpp!!!
   static GLModel mdl;
