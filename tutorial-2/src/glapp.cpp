@@ -75,9 +75,11 @@ void GLApp::draw() {
 	// clear back buffer as before ...
 	glClear(GL_COLOR_BUFFER_BIT);
 	// render rectangular shape from NDC coordinates to viewport
-	glViewport(vps[0].x, vps[0].y, vps[0].width, vps[0].height);
-	GLApp::models[0].draw();
-
+	for (int i = 0; i < 3; i++)
+	{
+		glViewport(vps[0].x, vps[0].y, vps[0].width, vps[0].height);
+		GLApp::models[0].draw();
+	}
 }
 
 void GLApp::cleanup() {
