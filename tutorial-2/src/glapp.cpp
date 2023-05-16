@@ -4,9 +4,9 @@
 @date    10/11/2016
 
 @co-author	benjaminzhiyuan.lee@digipen.edu
-@date		10/05/2023
-@ammendent	Added function definitions for functions init, update, draw
-			setup_vao, setup_shdrpgm.
+@date		15/05/2023
+@ammendent	Added function definitions for points_model, lines_model,trifans_model and
+			
 
 This file implements functionality useful and necessary to build OpenGL
 applications including use of external APIs such as GLFW to create a
@@ -23,15 +23,12 @@ to OpenGL implementations.
 #include <glapp.h>
 #include <glhelper.h>
 #include <array>
-#include <glm/vec2.hpp>
-#include <glm/vec3.hpp>
 
 std::vector<GLApp::GLViewport> GLApp::vps;
 std::vector<GLApp::GLModel> GLApp::models;
 
-/*	init
-* 
-*	Initialises neccesary variables and functions at the start of game loop.
+/*	
+*	@brief	Initialises neccesary variables and functions at the start of game loop.
 */
 void GLApp::init() {
 	// Part 1: clear colorbuffer with RGBA value in glClearColor ...
@@ -59,7 +56,7 @@ void GLApp::init() {
 		"../shaders/my-tutorial-2.vert",
 		"../shaders/my-tutorial-2.frag"));
 
-	//Set third geometry to circle
+	//Set third geometry to triangle fan
 	GLApp::models.emplace_back(GLApp::trifans_model(50,
 		"../shaders/my-tutorial-2.vert",
 		"../shaders/my-tutorial-2.frag"));
@@ -79,10 +76,10 @@ void GLApp::update() {
 
 }
  
-/*	GLApp::draw
-* 
-*	Renders objects set in the buffer
-*/
+/**
+ * @brief	Draw the application's window.
+			This function renders multiple viewports and sets the window title.
+ */
 void GLApp::draw() {
 	// write window title with stuff similar to sample ...
 	// how? collect everything you want written to title bar in a
@@ -113,10 +110,11 @@ void GLApp::cleanup() {
   // empty for now
 }
 
-/*	setup_shdrpgm
-	
-	Compiles the shaders and links the shader objects into a shader program.
-*/
+/**
+ * @brief	Set up the shader program for the GLModel.
+ * @param	vtx_shdr The vertex shader source code.
+ * @param	frg_shdr The fragment shader source code.
+ */
 void GLApp::GLModel::setup_shdrpgm(std::string vtx_shdr,
 	std::string frg_shdr) 
 {
@@ -132,26 +130,17 @@ void GLApp::GLModel::setup_shdrpgm(std::string vtx_shdr,
 }
 
 /**
-
 @brief Generates a model consisting of points forming a grid pattern.
-
 This function procedurally generates a model containing points forming a grid pattern.
-
 The grid is created by placing points at regular intervals on the x and y axes.
-
 The number of points on the x-axis is determined by the slices parameter,
-
 and the number of points on the y-axis is determined by the stacks parameter.
 
-@param slices The number of points on the x-axis.
-
-@param stacks The number of points on the y-axis.
-
-@param vtx_shdr The vertex shader code for the model.
-
-@param frg_shdr The fragment shader code for the model.
-
-@return A GLModel object representing the generated grid model.
+@param	slices		The number of points on the x-axis.
+@param	stacks		The number of points on the y-axis.
+@param	vtx_shdr	The vertex shader code for the model.
+@param	frg_shdr	The fragment shader code for the model.
+@return				A GLModel object representing the generated grid model.
 */
 GLApp::GLModel GLApp::points_model(int slices,int stacks, std::string vtx_shdr,
 	std::string frg_shdr) 
@@ -258,7 +247,7 @@ GLApp::GLModel GLApp::lines_model(int slices, int stacks, std::string vtx_shdr, 
  * @param slices	The number of slices in the circle.
  * @param vtx_shdr	The vertex shader source code.
  * @param frg_shdr	The fragment shader source code.
- * @return			A GLApp::GLModel object representing the triangle fan model.
+ * @return			A GLModel object representing the triangle fan model.
  */
 GLApp::GLModel GLApp::trifans_model(int slices, std::string vtx_shdr, std::string frg_shdr)
 {
@@ -345,7 +334,7 @@ GLApp::GLModel GLApp::trifans_model(int slices, std::string vtx_shdr, std::strin
  * @param stacks    The number of stacks.
  * @param vtx_shdr  The filename of the vertex shader.
  * @param frg_shdr  The filename of the fragment shader.
- * @return          The created GLModel object.
+ * @return          A GLModel object representing the triangle strip model.
  */
 GLApp::GLModel GLApp::tristrip_model(int slices, int stacks, std::string vtx_shdr, std::string frg_shdr) {
 
@@ -355,10 +344,12 @@ GLApp::GLModel GLApp::tristrip_model(int slices, int stacks, std::string vtx_shd
 	float x_slice = 2.0f / slices;
 	float y_stack = 2.0f / stacks;
 
-	for (int y = 0; y <= stacks; ++y) {
+	for (int y = 0; y <= stacks; ++y) 
+	{
 		float posY = -1.0f + y * y_stack;
 
-		for (int x = 0; x <= slices; ++x) {
+		for (int x = 0; x <= slices; ++x) 
+		{
 			float posX = -1.0f + x * x_slice;
 			pos_vtx.emplace_back(posX, posY);
 		}
@@ -390,7 +381,8 @@ GLApp::GLModel GLApp::tristrip_model(int slices, int stacks, std::string vtx_shd
 		vtx_idx.emplace_back(temp[0]);
 
 		//append temp to vtx_idx
-		for (const auto& element : temp) {
+		for (const auto& element : temp) 
+		{
 			vtx_idx.emplace_back(element);
 		}
 	}
@@ -400,7 +392,8 @@ GLApp::GLModel GLApp::tristrip_model(int slices, int stacks, std::string vtx_shd
 	std::random_device rd;
 	std::mt19937 gen(rd());
 	std::uniform_real_distribution<float> dis(0.0f, 1.0f);
-	for (int i = 0; i < (slices + 1) * (stacks + 1); ++i) {
+	for (int i = 0; i < (slices + 1) * (stacks + 1); ++i) 
+	{
 		colors[i] = glm::vec3(dis(gen), dis(gen), dis(gen));
 	}
 	// Step 3: Generate VAO handle
@@ -449,10 +442,9 @@ GLApp::GLModel GLApp::tristrip_model(int slices, int stacks, std::string vtx_shd
 }
 
 
-/*	GLApp::GLModel::draw
-* 
-*	Renders model, issues draw calls to graphics hardware
-*/
+/**
+ * @brief	Draw the GLModel using the specified shader program.
+ */
 void GLApp::GLModel::draw() {
 	shdr_pgm.Use();
 	glBindVertexArray(vaoid);

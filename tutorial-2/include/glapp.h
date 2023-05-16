@@ -4,7 +4,7 @@
 @date    10/11/2016
 
 @co-author	benjaminzhiyuan.lee@digipen.edu
-@date		10/05/2023
+@date		15/05/2023
 @ammendent	Added declarations for shader functions and GLModel srtuct.
 
 This file contains the declaration of namespace GLApp that encapsulates the
@@ -29,24 +29,21 @@ and transformations (in later labs).
 ----------------------------------------------------------------------------- */
 
 struct GLApp {
-  // previous existing declarations
+  
   static void init();
   static void update();
   static void draw();
   static void cleanup();
-// encapsulates state required to render a geometrical model
+//encapsulates state required to render a geometrical model
   struct GLModel {
-GLenum primitive_type{ 0 }; // same as tutorial 1
-GLuint primitive_cnt{ 0 }; // added for tutorial 2
-GLuint vaoid{ 0 }; // same as tutorial 1
-//GLuint idx_elem_cnt; // removed for tutorial 2
-GLuint draw_cnt{ 0 }; // added for tutorial 2
-GLSLShader shdr_pgm; // same as tutorial 1
-//void setup_vao(); // removed for tutorial 2
-//void setup_shdrpgm(); // removed for tutorial 2
-void setup_shdrpgm(std::string vtx_shdr, // added to tutorial 2
-std::string frg_shdr);
-void draw(); // same as tutorial 1
+	GLenum primitive_type{ 0 }; // same as tutorial 1
+	GLuint primitive_cnt{ 0 }; // added for tutorial 2
+	GLuint vaoid{ 0 }; // same as tutorial 1
+	GLuint draw_cnt{ 0 }; // added for tutorial 2
+	GLSLShader shdr_pgm; // same as tutorial 1
+	void setup_shdrpgm(std::string vtx_shdr, // added to tutorial 2
+	std::string frg_shdr);
+	void draw(); // same as tutorial 1
 };
 //static GLModel mdl; // removed for tutorial 2
 // container for different types of geometries required in tutorial 2
