@@ -338,7 +338,6 @@ GLApp::GLModel GLApp::trifans_model(int slices, std::string vtx_shdr, std::strin
 	return mdl;
 }
 
-
 /**
  * @brief Create a triangle strip model with the specified number of slices and stacks.
  *
