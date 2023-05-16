@@ -5,7 +5,8 @@
 
 @co-author	benjaminzhiyuan.lee@digipen.edu
 @date		15/05/2023
-@ammendent	Added declarations for shader functions and GLModel srtuct.
+@ammendent	Added declarations for points_model, lines_model,trifans_model and
+			tristrip_model.
 
 This file contains the declaration of namespace GLApp that encapsulates the
 functionality required to implement an OpenGL application including 
@@ -60,6 +61,7 @@ static GLApp::GLModel trifans_model(int slices, std::string vtx_shdr,
 
 static GLApp::GLModel tristrip_model(int slices, int stacks,
 	std::string vtx_shdr, std::string frg_shdr);
+
   struct GLViewport {
 	  GLint x, y;
 	  GLsizei width, height;
