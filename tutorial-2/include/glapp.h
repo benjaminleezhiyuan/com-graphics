@@ -36,11 +36,11 @@ struct GLApp {
   static void cleanup();
 // encapsulates state required to render a geometrical model
   struct GLModel {
-GLenum primitive_type; // same as tutorial 1
-GLuint primitive_cnt; // added for tutorial 2
-GLuint vaoid; // same as tutorial 1
+GLenum primitive_type{ 0 }; // same as tutorial 1
+GLuint primitive_cnt{ 0 }; // added for tutorial 2
+GLuint vaoid{ 0 }; // same as tutorial 1
 //GLuint idx_elem_cnt; // removed for tutorial 2
-GLuint draw_cnt; // added for tutorial 2
+GLuint draw_cnt{ 0 }; // added for tutorial 2
 GLSLShader shdr_pgm; // same as tutorial 1
 //void setup_vao(); // removed for tutorial 2
 //void setup_shdrpgm(); // removed for tutorial 2
@@ -52,10 +52,17 @@ void draw(); // same as tutorial 1
 // container for different types of geometries required in tutorial 2
 static std::vector<GLModel> models;
 // tutorial 2's replacement for setup_vao for GL_POINT primitives
-static GLApp::GLModel points_model(std::string vtx_shdr,
+static GLApp::GLModel points_model(int slices,int stacks, std::string vtx_shdr,
 std::string frg_shdr);
 
+static GLApp::GLModel lines_model(int slices, int stacks,
+	std::string vtx_shdr, std::string frg_shdr);
 
+static GLApp::GLModel trifans_model(int slices, std::string vtx_shdr,
+	std::string frg_shdr);
+
+static GLApp::GLModel tristrip_model(int slices, int stacks,
+	std::string vtx_shdr, std::string frg_shdr);
   struct GLViewport {
 	  GLint x, y;
 	  GLsizei width, height;

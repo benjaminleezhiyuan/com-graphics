@@ -19,6 +19,7 @@ pointers to OpenGL implementations.
 #include <glhelper.h>
 #include <iostream>
 
+
 /*                                                   objects with file scope
 ----------------------------------------------------------------------------- */
 // static data members declared in GLHelper
