@@ -18,6 +18,8 @@ to OpenGL implementations.
 /*                                                                   includes
 ----------------------------------------------------------------------------- */
 #include <iostream>
+#include <sstream>
+#include <iomanip>
 #include <random>
 #include <vector>
 #include <glapp.h>
@@ -26,6 +28,7 @@ to OpenGL implementations.
 
 std::vector<GLApp::GLViewport> GLApp::vps;
 std::vector<GLApp::GLModel> GLApp::models;
+std::stringstream info;
 
 /*	
 *	@brief	Initialises neccesary variables and functions at the start of game loop.
@@ -65,6 +68,12 @@ void GLApp::init() {
 	GLApp::models.emplace_back(GLApp::tristrip_model(10,15,
 		"../shaders/my-tutorial-2.vert",
 		"../shaders/my-tutorial-2.frag"));
+
+	//Collect info about the number of primitives and draw counts for each model
+	info << "POINTS: " << models[0].primitive_cnt << ", " << models[0].draw_cnt << " | ";
+	info << "LINES: " << models[1].primitive_cnt << ", " << models[1].draw_cnt << " | ";
+	info << "FAN: " << models[2].primitive_cnt << ", " << models[2].draw_cnt << " | ";
+	info << "STRIP: " << models[3].primitive_cnt << ", " << models[3].draw_cnt << " | ";
 }
 
 /*	update
@@ -75,17 +84,12 @@ void GLApp::update() {
 //nothing
 
 }
- 
+
 /**
  * @brief	Draw the application's window.
 			This function renders multiple viewports and sets the window title.
  */
 void GLApp::draw() {
-	// write window title with stuff similar to sample ...
-	// how? collect everything you want written to title bar in a
-	// std::string object named stitle
-	std::string stitle{ GLHelper::title };
-	glfwSetWindowTitle(GLHelper::ptr_window, stitle.c_str());
 	// clear back buffer as before ...
 	glClear(GL_COLOR_BUFFER_BIT);
 
@@ -104,6 +108,13 @@ void GLApp::draw() {
 	glViewport(vps[3].x, vps[3].y, vps[3].width, vps[3].height);
 	GLApp::models[3].draw();
 	
+	// write window title with stuff similar to sample ...
+	// how? collect everything you want written to title bar in a
+	// std::string object named stitle
+	std::stringstream frames;
+	frames << std::fixed << std::setprecision(2) << GLHelper::fps; //Get fps
+	std::string stitle = "Tutorial 2 | Benjamin Lee | " + info.str() + frames.str();
+	glfwSetWindowTitle(GLHelper::ptr_window, stitle.c_str());
 }
 
 void GLApp::cleanup() {
@@ -122,7 +133,8 @@ void GLApp::GLModel::setup_shdrpgm(std::string vtx_shdr,
 	shdr_files.emplace_back(std::make_pair(GL_VERTEX_SHADER, vtx_shdr));
 	shdr_files.emplace_back(std::make_pair(GL_FRAGMENT_SHADER, frg_shdr));
 	shdr_pgm.CompileLinkValidate(shdr_files);
-	if (GL_FALSE == shdr_pgm.IsLinked()) {
+	if (GL_FALSE == shdr_pgm.IsLinked()) 
+	{
 		std::cout << "Unable to compile/link/validate shader programs\n";
 		std::cout << shdr_pgm.GetLog() << "\n";
 		std::exit(EXIT_FAILURE);
@@ -164,7 +176,7 @@ GLApp::GLModel GLApp::points_model(int slices,int stacks, std::string vtx_shdr,
 	GLuint vbo_hdl;
 	glCreateBuffers(1, &vbo_hdl);
 	glNamedBufferStorage(vbo_hdl, sizeof(glm::vec2) * pos_vtx.size(),
-		pos_vtx.data(), GL_DYNAMIC_STORAGE_BIT);
+	pos_vtx.data(), GL_DYNAMIC_STORAGE_BIT);
 	GLuint vaoid;
 	glCreateVertexArrays(1, &vaoid);
 	glEnableVertexArrayAttrib(vaoid, 0);
@@ -176,11 +188,10 @@ GLApp::GLModel GLApp::points_model(int slices,int stacks, std::string vtx_shdr,
 	mdl.vaoid = vaoid;
 	mdl.primitive_type = GL_POINTS;
 	mdl.setup_shdrpgm(vtx_shdr, frg_shdr);
-	mdl.draw_cnt = pos_vtx.size(); // number of vertices
+	mdl.draw_cnt = ((slices + 1) * (stacks + 1)); // number of vertices
 	mdl.primitive_cnt = mdl.draw_cnt; // number of primitives (unused)
 	return mdl;
 } // end of function GLApp::points_model
-
 
 /**
 @brief Generates a model consisting of lines forming a grid pattern.
@@ -223,7 +234,7 @@ GLApp::GLModel GLApp::lines_model(int slices, int stacks, std::string vtx_shdr, 
 	GLuint vbo_hdl;
 	glCreateBuffers(1, &vbo_hdl);
 	glNamedBufferStorage(vbo_hdl, sizeof(glm::vec2) * pos_vtx.size(),
-		pos_vtx.data(), GL_DYNAMIC_STORAGE_BIT);
+	pos_vtx.data(), GL_DYNAMIC_STORAGE_BIT);
 	GLuint vaoid;
 	glCreateVertexArrays(1, &vaoid);
 	glEnableVertexArrayAttrib(vaoid, 0);
@@ -237,7 +248,7 @@ GLApp::GLModel GLApp::lines_model(int slices, int stacks, std::string vtx_shdr, 
 	mdl.primitive_type = GL_LINES;
 	mdl.setup_shdrpgm(vtx_shdr, frg_shdr);
 	mdl.draw_cnt = 2 * (slices + 1) + 2 * (stacks + 1); // number of vertices
-	mdl.primitive_cnt = mdl.draw_cnt / 2; // number of primitives (not used)
+	mdl.primitive_cnt = mdl.draw_cnt / 2; // number of primitives 
 	return mdl;
 
 }
@@ -260,7 +271,8 @@ GLApp::GLModel GLApp::trifans_model(int slices, std::string vtx_shdr, std::strin
 	//center vertex
 	pos_vtx[0] = glm::vec2(0.0f, 0.0f);
 
-	for (int i=0; i <= slices; ++i) {
+	for (int i=0; i <= slices; ++i) 
+	{
 		float angle = (i) * angle_increment;
 		float x = glm::cos(angle);
 		float y = glm::sin(angle);
@@ -277,7 +289,8 @@ GLApp::GLModel GLApp::trifans_model(int slices, std::string vtx_shdr, std::strin
 	std::mt19937 gen(rd());
 	std::uniform_real_distribution<float> dis(0.0f, 1.0f);
 
-	for (int i = 0; i < slices + 2; ++i) {
+	for (int i = 0; i < slices + 2; ++i) 
+	{
 		float r = dis(gen);
 		float g = dis(gen);
 		float b = dis(gen);
@@ -387,14 +400,14 @@ GLApp::GLModel GLApp::tristrip_model(int slices, int stacks, std::string vtx_shd
 		}
 	}
 
-	std::vector<glm::vec3> colors((slices + 1) * (stacks + 1));
+	std::vector<glm::vec3> col_vtx((slices + 1) * (stacks + 1));
 	// Generate random colors
 	std::random_device rd;
 	std::mt19937 gen(rd());
 	std::uniform_real_distribution<float> dis(0.0f, 1.0f);
 	for (int i = 0; i < (slices + 1) * (stacks + 1); ++i) 
 	{
-		colors[i] = glm::vec3(dis(gen), dis(gen), dis(gen));
+		col_vtx[i] = glm::vec3(dis(gen), dis(gen), dis(gen));
 	}
 	// Step 3: Generate VAO handle
 	GLuint vao_hdl;
@@ -417,7 +430,7 @@ GLApp::GLModel GLApp::tristrip_model(int slices, int stacks, std::string vtx_shd
 	GLuint vbo_col_hdl;
 	glCreateBuffers(1, &vbo_col_hdl);
 	glBindBuffer(GL_ARRAY_BUFFER, vbo_col_hdl);
-	glNamedBufferData(vbo_col_hdl, sizeof(glm::vec3) * colors.size(), colors.data(), GL_DYNAMIC_DRAW);
+	glNamedBufferData(vbo_col_hdl, sizeof(glm::vec3) * col_vtx.size(), col_vtx.data(), GL_DYNAMIC_DRAW);
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
 
@@ -440,7 +453,6 @@ GLApp::GLModel GLApp::tristrip_model(int slices, int stacks, std::string vtx_shd
 
 	return mdl;
 }
-
 
 /**
  * @brief	Draw the GLModel using the specified shader program.
