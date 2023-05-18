@@ -68,7 +68,7 @@ static void update() {
   glfwPollEvents();
 
   // Part 2
-  GLHelper::update_time(1.0);
+  GLHelper::update_time(1);
   
   // Part 3
   GLApp::update();

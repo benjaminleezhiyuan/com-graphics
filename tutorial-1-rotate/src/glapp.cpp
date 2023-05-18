@@ -207,7 +207,14 @@ void GLApp::GLModel::setup_shdrpgm() {
 *	Renders model, issues draw calls to graphics hardware
 */
 void GLApp::GLModel::draw() {
-	static GLfloat rot_ang = glm::half_pi<float>() / 2.f;
+	static double startTime = glfwGetTime();
+	double elapsedTime = glfwGetTime() - startTime;
+	static GLfloat rot_ang;
+	static GLfloat rot_speed = 10.f;
+	if (elapsedTime >= 1)
+	{
+		rot_ang += (rot_speed / (float)GLHelper::fps) * glm::half_pi<float>() / 180.f;
+	}
 	GLfloat cos_ang = std::cos(rot_ang);
 	GLfloat sin_ang = std::sin(rot_ang);
 	GLfloat rot_mtx[9] = { cos_ang,sin_ang,0,-sin_ang,cos_ang,0,0,0,1 };
