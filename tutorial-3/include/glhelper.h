@@ -38,11 +38,15 @@ struct GLHelper
   static void error_cb(int error, char const* description);
   static void fbsize_cb(GLFWwindow *ptr_win, int width, int height);
   // I/O callbacks ...
-  static void key_cb(GLFWwindow *pwin, int key, int scancode, int action, int mod);
-  static void mousebutton_cb(GLFWwindow *pwin, int button, int action, int mod);
-  static void mousescroll_cb(GLFWwindow *pwin, double xoffset, double yoffset);
-  static void mousepos_cb(GLFWwindow *pwin, double xpos, double ypos);
-
+// I/O callbacks ...
+  static void key_cb(GLFWwindow*, int key, int scancode,
+	  int action, int mod);
+  static void mousebutton_cb(GLFWwindow*, int button,
+	  int action, int mod);
+  static void mousescroll_cb(GLFWwindow*,
+	  double xoffset, double yoffset);
+  static void mousepos_cb(GLFWwindow*, double xpos, double ypos);
+  static GLboolean keystateP;
   static void update_time(double fpsCalcInt = 1.0);
 
   static GLint width, height;

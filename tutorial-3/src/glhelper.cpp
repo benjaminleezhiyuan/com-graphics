@@ -29,7 +29,7 @@ GLdouble GLHelper::fps;
 GLdouble GLHelper::delta_time;
 std::string GLHelper::title;
 GLFWwindow* GLHelper::ptr_window;
-
+GLboolean GLHelper::keystateP = GL_FALSE;
 
 
 /*  _________________________________________________________________________ */
@@ -226,25 +226,25 @@ were held down
 This function is called when keyboard buttons are pressed.
 When the ESC key is pressed, the close flag of the window is set.
 */
-void GLHelper::key_cb(GLFWwindow *pwin, int key, int scancode, int action, int mod) {
-  if (GLFW_PRESS == action) {
-#ifdef _DEBUG
-    std::cout << "Key pressed" << std::endl;
-#endif
-  } else if (GLFW_REPEAT == action) {
-#ifdef _DEBUG
-    std::cout << "Key repeatedly pressed" << std::endl;
-#endif
-  } else if (GLFW_RELEASE == action) {
-#ifdef _DEBUG
-    std::cout << "Key released" << std::endl;
-#endif
-  }
-
-  if (GLFW_KEY_ESCAPE == key && GLFW_PRESS == action) {
-    glfwSetWindowShouldClose(pwin, GLFW_TRUE);
-  }
+void GLHelper::key_cb(GLFWwindow* pwin, int key, int scancode, int
+    action, int mod) {
+    // key state changes from released to pressed
+    if (GLFW_PRESS == action) {
+        if (GLFW_KEY_ESCAPE == key) {
+            glfwSetWindowShouldClose(pwin, GLFW_TRUE);
+        }
+        keystateP = (key == GLFW_KEY_P) ? GL_TRUE : GL_FALSE;
+        }
+    else if (GLFW_REPEAT == action) {
+        // key state was and is being pressed
+        keystateP = GL_FALSE;
+    }
+    else if (GLFW_RELEASE == action) {
+        // key start changes from pressed to released
+        keystateP = GL_FALSE;
+    }
 }
+
 
 /*  _________________________________________________________________________*/
 /*! mousebutton_cb
