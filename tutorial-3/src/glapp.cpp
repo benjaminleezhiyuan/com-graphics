@@ -38,6 +38,7 @@ void GLApp::init() {
 // Part 1: initialize OpenGL state ...
 	// clear colorbuffer with RGBA value in glClearColor ...
 	glClearColor(1.f, 1.f, 1.f, 1.f);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 // Part 2: use the entire window as viewport ...
 	glViewport(0, 0, GLHelper::width, GLHelper::height);
 
@@ -71,6 +72,25 @@ void GLApp::update() {
 	// Part 1: Update polygon rasterization mode ...
 	// Check if key 'P' is pressed
 	// If pressed, update polygon rasterization mode
+	if (GLHelper::keystateP == GLFW_TRUE)
+	{
+		static int mode = 0;
+		switch (mode)
+		{
+		case 0:
+			glPolygonMode(GL_FRONT_AND_BACK, GL_LINES);
+			mode = 1;
+			break;
+		case 1:
+			glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
+			mode = 2;
+			break;
+		case 2:
+			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+			mode = 0;
+			break;
+		}
+	};
 
 	// Part 2: Spawn or kill objects ...
 	// Check if left mouse button is pressed
@@ -165,18 +185,75 @@ void GLApp::GLObject::draw() const {
 		glBindVertexArray(0);
 		GLApp::shdrpgms[shd_ref].UnUse();
 }
-
-GLApp::GLModel GLApp::box_model()
+	
+	GLApp::GLModel GLApp::box_model()
 {
-	//Define vertex pos and colour attributes
-	std::vector<glm::vec2> pos_vtx{
-	glm::vec2(0.5f, -0.5f), glm::vec2(0.5f, 0.5f),
-	glm::vec2(-0.5f, 0.5f), glm::vec2(-0.5f, -0.5f)
+	// Step 1: Define vertex pos and colour attributes
+	std::vector<glm::vec2> pos_vtx
+	{
+	{ -0.5f, -0.5f },   // Bottom-left vertex
+	{ 0.5f, -0.5f },    // Bottom-right vertex
+	{ 0.5f, 0.5f },     // Top-right vertex
+	{ -0.5f, 0.5f },    // Top-left vertex
+	{ -0.5f, -0.5f },   // Bottom-left vertex of the second triangle
+	{ 0.5f, 0.5f }      // Top-right vertex of the second triangle
 	};
-	std::vector<glm::vec3> clr_vtx{
-	glm::vec3(1.f, 0.f, 0.f), glm::vec3(0.f, 1.f, 0.f),
-	glm::vec3(0.f, 0.f, 1.f), glm::vec3(1.f, 1.f, 1.f)
+
+	std::random_device rd;
+	std::mt19937 gen(rd());
+	std::uniform_real_distribution<float> dis(0.0f, 1.0f);
+	std::vector<glm::vec3> clr_vtx
+	{
+		{ dis(gen), dis(gen), dis(gen) },
+		{ dis(gen), dis(gen), dis(gen) },
+		{ dis(gen), dis(gen), dis(gen) },
+		{ dis(gen), dis(gen), dis(gen) },
+		{ dis(gen), dis(gen), dis(gen) },
+		{ dis(gen), dis(gen), dis(gen) },
 	};
+
+	// Step 2: Generate Vertex Buffer Objects (VBOs) and allocate storage for position and color data
+	GLuint vbo_hdl, color_vbo_hdl;
+	glCreateBuffers(1, &vbo_hdl);
+	glNamedBufferData(vbo_hdl, sizeof(glm::vec2) * pos_vtx.size(), pos_vtx.data(), GL_DYNAMIC_DRAW);
+
+	glCreateBuffers(1, &color_vbo_hdl);
+	glNamedBufferData(color_vbo_hdl, sizeof(glm::vec3) * clr_vtx.size(), clr_vtx.data(), GL_DYNAMIC_DRAW);
+
+	// Step 3: Generate Vertex Array Object (VAO) and bind attributes
+	GLuint vaoid;
+	glCreateVertexArrays(1, &vaoid);
+	glEnableVertexArrayAttrib(vaoid, 0);
+	glVertexArrayVertexBuffer(vaoid, 0, vbo_hdl, 0, sizeof(glm::vec2));
+	glVertexArrayAttribFormat(vaoid, 0, 2, GL_FLOAT, GL_FALSE, 0);
+	glVertexArrayAttribBinding(vaoid, 0, 0);
+
+	// Bind color attribute
+	glEnableVertexArrayAttrib(vaoid, 1);
+	glVertexArrayVertexBuffer(vaoid, 1, color_vbo_hdl, 0, sizeof(glm::vec3));
+	glVertexArrayAttribFormat(vaoid, 1, 3, GL_FLOAT, GL_FALSE, 0);
+	glVertexArrayAttribBinding(vaoid, 1, 1);
+
+	// Step 4: Generate Index Buffer Object (IBO) and allocate storage for index data
+	GLuint ibo_hdl;
+	std::vector<GLuint> indices = {
+	  0, 1, 2,    // First triangle
+	  0, 2, 3     // Second triangle
+	};
+	glCreateBuffers(1, &ibo_hdl);
+	glNamedBufferData(ibo_hdl, sizeof(GLuint) * indices.size(), indices.data(), GL_DYNAMIC_DRAW);
+
+	// Unbind VAO
+	glBindVertexArray(0);
+
+	// Create and initialize the GLModel object
+	GLApp::GLModel mdl{ 0 };
+	mdl.vaoid = vaoid;
+	mdl.primitive_type = GL_TRIANGLE_FAN; // Use GL_TRIANGLE_FAN to render a box
+	mdl.draw_cnt = indices.size(); // Number of indices
+	mdl.primitive_cnt = mdl.draw_cnt / 3; // Number of triangles (primitives)
+
+	return mdl;
 }
 
 GLApp::GLModel GLApp::mystery_model()
