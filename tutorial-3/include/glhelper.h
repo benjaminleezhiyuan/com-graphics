@@ -47,6 +47,7 @@ struct GLHelper
 	  double xoffset, double yoffset);
   static void mousepos_cb(GLFWwindow*, double xpos, double ypos);
   static GLboolean keystateP;
+  static GLboolean mousestateLeft;
   static void update_time(double fpsCalcInt = 1.0);
 
   static GLint width, height;
