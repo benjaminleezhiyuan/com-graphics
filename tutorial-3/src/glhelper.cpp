@@ -30,7 +30,7 @@ GLdouble GLHelper::delta_time;
 std::string GLHelper::title;
 GLFWwindow* GLHelper::ptr_window;
 GLboolean GLHelper::keystateP = GL_FALSE;
-GLboolean mousestateLeft = GL_FALSE;
+GLboolean GLHelper::mousestateLeft = GL_FALSE;
 
 
 /*  _________________________________________________________________________ */
@@ -272,7 +272,6 @@ This function is called when mouse buttons are pressed.
 void GLHelper::mousebutton_cb(GLFWwindow *pwin, int button, int action, int mod) {
   switch (button) {
   case GLFW_MOUSE_BUTTON_LEFT:
-      mousestateLeft = (GLFW_PRESS == action) ? GL_TRUE : GL_FALSE;
 #ifdef _DEBUG
     std::cout << "Left mouse button ";
 #endif
@@ -285,11 +284,13 @@ void GLHelper::mousebutton_cb(GLFWwindow *pwin, int button, int action, int mod)
   }
   switch (action) {
   case GLFW_PRESS:
+      mousestateLeft = GL_TRUE;
 #ifdef _DEBUG
     std::cout << "pressed!!!" << std::endl;
 #endif
     break;
   case GLFW_RELEASE:
+      mousestateLeft = GL_FALSE;
 #ifdef _DEBUG
     std::cout << "released!!!" << std::endl;
 #endif
