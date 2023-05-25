@@ -402,7 +402,7 @@ GLApp::GLModel GLApp::mystery_model()
 	};
 
 	std::vector<glm::vec3> clr_vtx;
-	for (int i = 0; i < pos_vtx.size(); ++i)
+	for (size_t i = 0; i < pos_vtx.size(); ++i)
 	{
 		// mysteryerate random color for each vertex
 		glm::vec3 random_color(dis_color(mystery), dis_color(mystery), dis_color(mystery));
@@ -452,7 +452,7 @@ GLApp::GLModel GLApp::mystery_model()
 	// Create and initialize the GLModel object
 	GLApp::GLModel mdl{};
 	mdl.vaoid = vaoid;
-	mdl.primitive_type = GL_TRIANGLE_FAN; // Use GL_TRIANGLE_FAN to render the shape
+	mdl.primitive_type = GL_TRIANGLE_STRIP; // Use GL_TRIANGLE_FAN to render the shape
 	mdl.draw_cnt = pos_vtx.size(); // number of vertices
 	mdl.primitive_cnt = mdl.draw_cnt / 3; // number of triangles
 
