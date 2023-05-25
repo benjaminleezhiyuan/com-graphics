@@ -1,7 +1,7 @@
 /**
- * @file 	my-tutorial-2.vert
+ * @file 	my-tutorial-3.vert
  * @author 	benjaminzhiyuan.lee@digipen.edu
- * @date	15/05/23
+ * @date	26/05/23
  * @brief 	Vertex shader source code for the application.
  * 
  * This shader takes the vertex position and color as input attributes

@@ -4,8 +4,8 @@
 @date    10/11/2016
 
 @co-author	benjaminzhiyuan.lee@digipen.edu
-@date		10/05/2023
-@ammendent	Added declarations for function print_specs.
+@date		26/05/2023
+@ammendent	added mousestateLeft boolean.
 
 This file contains the declaration of namespace Helper that encapsulates the
 functionality required to create an OpenGL context using GLFW; use GLEW

@@ -4,8 +4,8 @@
 @date    10/11/2016
 
 @co-author	benjaminzhiyuan.lee@digipen.edu
-@date		10/05/2023
-@ammendent  Added function declaration for print_specs
+@date		26/05/2023
+@ammendent  updated mousebutton_cb to change mousestateLeft.
 
 This file implements functionality useful and necessary to build OpenGL
 applications including use of external APIs such as GLFW to create a
@@ -288,13 +288,13 @@ void GLHelper::mousebutton_cb(GLFWwindow *pwin, int button, int action, int mod)
   }
   switch (action) {
   case GLFW_PRESS:
-      mousestateLeft = GL_TRUE;
+      mousestateLeft = GL_TRUE; //if leftmouse is pressed state = true;
 #ifdef _DEBUG
     std::cout << "pressed!!!" << std::endl;
 #endif
     break;
   case GLFW_RELEASE:
-      mousestateLeft = GL_FALSE;
+      mousestateLeft = GL_FALSE; //if leftmouse is released state = false;
 #ifdef _DEBUG
     std::cout << "released!!!" << std::endl;
 #endif

@@ -4,9 +4,8 @@
 @date    10/11/2016
 
 @co-author	benjaminzhiyuan.lee@digipen.edu
-@date		15/05/2023
-@ammendent	Added declarations for points_model, lines_model,trifans_model and
-			tristrip_model.
+@date		26/05/2023
+@ammendent	Updated the GLApp Struct to do instanced rendering
 
 This file contains the declaration of namespace GLApp that encapsulates the
 functionality required to implement an OpenGL application including 
