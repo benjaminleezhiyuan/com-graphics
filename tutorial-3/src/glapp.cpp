@@ -101,8 +101,23 @@ void GLApp::GLObject::draw() const
 	}
 
 	//render model
-	glDrawArrays(models[mdl_ref].primitive_type, 0, models[mdl_ref].draw_cnt);
-
+	switch (raster)
+	{
+	case line:
+		glLineWidth(10.f);
+		glDrawArrays(models[mdl_ref].primitive_type, 0, models[mdl_ref].draw_cnt);
+		glLineWidth(1.f);
+		break;
+	case fill:
+		glDrawArrays(models[mdl_ref].primitive_type, 0, models[mdl_ref].draw_cnt);
+		break;
+	case point:
+		glPointSize(10.f);
+		glDrawArrays(models[mdl_ref].primitive_type, 0, models[mdl_ref].draw_cnt);
+		glPointSize(1.f);
+		break;
+	}
+	
 	//cleanup
 	glBindVertexArray(0);
 	shdrpgms[shd_ref].UnUse();
@@ -299,11 +314,9 @@ void GLApp::draw()
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		break;
 	case line:
-		glLineWidth(4.f);
 		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 		break;
 	case point:
-		glPointSize(10.f);
 		glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
 		break;
 	}
@@ -321,7 +334,6 @@ void GLApp::cleanup() {
 //rng for colours
 std::random_device rd;
 std::mt19937 box(rd());
-std::mt19937 mystery(rd());
 std::uniform_real_distribution<float> dis_color(0.0f, 1.0f);
 
 GLApp::GLModel GLApp::box_model()
@@ -371,10 +383,9 @@ GLApp::GLModel GLApp::box_model()
 
 	// Step 4: mysteryerate Index Buffer Object (IBO) and allocate storage for index data
 	GLuint ibo_hdl;
-	std::vector<GLuint> indices = {
-	  0, 1, 2,    // First triangle
-	  0, 2, 3     // Second triangle
-	};
+	std::vector<GLuint> indices;
+	for (int i = 0; i < static_cast<int>(pos_vtx.size()); ++i)
+		indices.push_back(i);
 	glCreateBuffers(1, &ibo_hdl);
 	glNamedBufferData(ibo_hdl, sizeof(GLuint) * indices.size(), indices.data(), GL_DYNAMIC_DRAW);
 
@@ -405,7 +416,7 @@ GLApp::GLModel GLApp::mystery_model()
 	for (size_t i = 0; i < pos_vtx.size(); ++i)
 	{
 		// mysteryerate random color for each vertex
-		glm::vec3 random_color(dis_color(mystery), dis_color(mystery), dis_color(mystery));
+		glm::vec3 random_color(dis_color(box), dis_color(box), dis_color(box));
 		clr_vtx.push_back(random_color);
 	}
 	
