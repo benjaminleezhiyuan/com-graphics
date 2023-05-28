@@ -13,6 +13,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tutorial-3", "tutorial-3\tu
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tutorial-1-rotate", "tutorial-1-rotate\tutorial-1-rotate.vcxproj", "{AA7B663A-363F-452B-862E-CD07168C0929}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tutorial-4", "tutorial-4\tutorial-4.vcxproj", "{CEF44E37-115F-4363-B2C3-B48D07C2AF82}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -83,6 +85,18 @@ Global
 		{AA7B663A-363F-452B-862E-CD07168C0929}.Release|x64.Build.0 = Release|x64
 		{AA7B663A-363F-452B-862E-CD07168C0929}.Release|x86.ActiveCfg = Release|Win32
 		{AA7B663A-363F-452B-862E-CD07168C0929}.Release|x86.Build.0 = Release|Win32
+		{CEF44E37-115F-4363-B2C3-B48D07C2AF82}.Debug|Win32.ActiveCfg = Debug|Win32
+		{CEF44E37-115F-4363-B2C3-B48D07C2AF82}.Debug|Win32.Build.0 = Debug|Win32
+		{CEF44E37-115F-4363-B2C3-B48D07C2AF82}.Debug|x64.ActiveCfg = Debug|x64
+		{CEF44E37-115F-4363-B2C3-B48D07C2AF82}.Debug|x64.Build.0 = Debug|x64
+		{CEF44E37-115F-4363-B2C3-B48D07C2AF82}.Debug|x86.ActiveCfg = Debug|Win32
+		{CEF44E37-115F-4363-B2C3-B48D07C2AF82}.Debug|x86.Build.0 = Debug|Win32
+		{CEF44E37-115F-4363-B2C3-B48D07C2AF82}.Release|Win32.ActiveCfg = Release|Win32
+		{CEF44E37-115F-4363-B2C3-B48D07C2AF82}.Release|Win32.Build.0 = Release|Win32
+		{CEF44E37-115F-4363-B2C3-B48D07C2AF82}.Release|x64.ActiveCfg = Release|x64
+		{CEF44E37-115F-4363-B2C3-B48D07C2AF82}.Release|x64.Build.0 = Release|x64
+		{CEF44E37-115F-4363-B2C3-B48D07C2AF82}.Release|x86.ActiveCfg = Release|Win32
+		{CEF44E37-115F-4363-B2C3-B48D07C2AF82}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
