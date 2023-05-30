@@ -22,31 +22,170 @@ to OpenGL implementations.
 #include <glapp.h>
 #include <glhelper.h>
 #include <array>
+#include <vector>
 #include <glm/gtc/type_ptr.hpp>
 
 // define singleton containers
-std::vector<GLSLShader> GLApp::shdrpgms;
-std::vector<GLApp::GLModel> GLApp::models;
-std::list<GLApp::GLObject> GLApp::objects;
+std::map<std::string, GLSLShader> shdrpgms;
+std::map<std::string, GLApp::GLModel> models;
+std::map<std::string, GLApp::GLObject> objects;
 
-//static variables
-static int box_count = 0,	 //number of boxes
-mystery_count = 0,			//number of mystery objects
-increase_count = 0,		   //number of objects to spawn
-decrease_count = 0;		  //number of objects to kill
+std::vector<glm::vec2> vtx_pos;
+std::vector<glm::vec3> index;
 
-static GLboolean spawn_mode = true; //spawn_mode true = spawn objects, false = kill objects
-
-//enumaration for raster mode
-enum mode
+void init(std::string model_name)
 {
-	fill,
-	line,
-	point
-};
+	std::string file_name = "../meshes/" + model_name + ".msh";
+	// Read data from file
+	std::ifstream file(file_name);
+	if (!file.is_open())
+	{
+		std::cout << "Failed to open square.msh" << std::endl;
+		EXIT_FAILURE;
+	}
 
-//store current raster mode
-static mode raster = fill;
+	// Process mesh data
+	std::string line;
+	while (std::getline(file, line))
+	{
+		std::istringstream iss(line);
+
+		char type;
+		iss >> type;
+		if (type == 'n')
+		{
+			std::string model_name;
+			iss >> model_name;
+		}
+		else if (type == 'v')
+		{
+			float x, y;
+			iss >> x >> y;
+			vtx_pos.emplace_back(x, y);
+		}
+		else if (type == 't')
+		{
+			int v1, v2, v3;
+			iss >> v1 >> v2 >> v3;
+			index.emplace_back(v1, v2, v3);
+		}
+		else if (type == 'f')
+		{
+
+		}
+	}
+	file.close();
+}
+
+void GLApp::init_scene(std::string scene_filename)
+{
+	std::ifstream ifs{ scene_filename, std::ios::in };
+	if (!ifs) {
+		std::cout << "ERROR: Unable to open scene file: "
+			<< scene_filename << "\n";
+		exit(EXIT_FAILURE);
+	}
+	ifs.seekg(0, std::ios::beg);
+	std::string line;
+	getline(ifs, line); // first line is count of objects in scene
+	std::istringstream line_sstm{ line };
+	int obj_cnt;
+	line_sstm >> obj_cnt; // read count of objects in scene
+	while (obj_cnt--) // read each object's parameters
+	{
+		getline(ifs, line); // 1st parameter: model's name
+		std::istringstream line_modelname{ line };
+		std::string model_name;
+		line_modelname >> model_name;
+		/*
+		add code to do this:
+		if model with name model_name is not present in std::map container
+		called models, then add this model to the container
+		*/
+		// Check if model with name model_name is already present in the models map
+		if (models.find(model_name) == models.end())
+		{
+			// Model doesn't exist in the map, create and add it
+			GLModel model;
+			// Initialize the model based on the file data
+			models[model_name].init(model_name);
+		}
+
+		/*
+		add code to do this:
+		if shader program listed in the scene file is not present in
+		std::map container called shdrpgms, then add this model to the
+		container
+		*/
+		getline(ifs, line); //name of object
+		std::istringstream line_objectname{ line };
+		std::string object_name;
+		line_objectname >> object_name;
+
+		getline(ifs, line); //shader program name
+		std::string shaderP, vtx_shd, frg_shd;
+		std::istringstream shader_prg{ line };
+		shader_prg >> shaderP >> vtx_shd >> frg_shd;
+
+		//init shader program
+		init_shdrpgms(shaderP, vtx_shd, frg_shd);
+
+		/*
+		add code to do this:
+		read remaining parameters of object from file:
+		object's name
+		RGB parameters for rendering object's model geometry
+		scaling factors to be applied on object's model
+		orientation factors: initial angular orientation and angular speed
+		object's position in game world
+		set data member GLApp::GLObject::mdl_ref to iterator that points to
+		model instantiated by this object
+		set data member GLApp::GLObject::shd_ref to iterator that points to
+		shader program used by this object
+		insert this object to std::map container objects
+		*/
+		getline(ifs, line); //rgb values
+		std::istringstream color{ line };
+		float r, g, b;
+		color >> r >> g >> b;
+
+		getline(ifs, line); // Scaling factors to be applied on object's model
+		std::istringstream line_scaling{ line };
+		float scaleX, scaleY;
+		line_scaling >> scaleX >> scaleY;
+
+		getline(ifs, line); // Orientation factors: initial angular orientation and angular speed
+		std::istringstream line_orientation{ line };
+		float angle, angularSpeed;
+		line_orientation >> angle >> angularSpeed;
+
+		getline(ifs, line); // Object's position in the game world
+		std::istringstream line_position{ line };
+		float posX, posY;
+		line_position >> posX >> posY;
+
+		// Set the references to the model and shader program
+		auto modelRef = models.find(model_name);
+		auto shaderRef = shdrpgms.find(shaderP);
+
+		// Create a GLObject and populate its properties
+		GLObject object;
+		object.mdl_ref = modelRef;
+		object.shd_ref = shaderRef;
+		object.color = glm::vec3(r, g, b);
+		object.scaling = glm::vec2(scaleX, scaleY);
+		object.orientation = glm::vec2(angle, angularSpeed);
+		object.position = glm::vec2(posX, posY);
+
+		objects.insert(std::make_pair(object_name, object));
+	}
+}
+
+
+void GLApp::GLModel::release()
+{
+
+}
 
 /**
 
@@ -77,10 +216,10 @@ void GLApp::GLObject::init()
 	std::random_device ran;
 	std::mt19937 mystery(ran());
 	std::uniform_int_distribution<> dis(0, 1);
-	mdl_ref = dis(mystery);
+	//mdl_ref = dis(mystery);
 
 	//assign shd_ref value of 0
-	shd_ref = 0;
+	//shd_ref = 0;
 
 	//init the objects parameters
 	std::uniform_real_distribution<> dis_float(-1.f, 1.f);
@@ -92,8 +231,8 @@ void GLApp::GLObject::init()
 	//Initialise objects scale, rotation
 	std::uniform_real_distribution<> dis_scale(0.05, 0.15);		//random scale
 	scaling = glm::vec2(dis_scale(mystery), dis_scale(mystery));
-	angle_speed = static_cast<float>(dis_float(mystery));			//random rotation speed
-	angle_disp = static_cast<float>(dis_float(mystery)) * 360.f;	//current orientation
+	orientation.y = static_cast<float>(dis_float(mystery));			//random rotation speed
+	orientation.x = static_cast<float>(dis_float(mystery)) * 360.f;	//current orientation
 }
 
 /**
@@ -111,50 +250,42 @@ using the appropriate OpenGL draw function (glDrawArrays). Finally, it cleans up
 unusing the shader program.
 */
 void GLApp::GLObject::draw() const
-{
-	//install shader prgm
-	shdrpgms[shd_ref].Use();
+{	
+	// Part 1: Get the shader program in use by this object
+	const GLSLShader& shaderProgram = shd_ref->second;
 
-	//bind object vao handle
-	glBindVertexArray(models[mdl_ref].vaoid);
+	// Part 2: Bind object's VAO handle
+	glBindVertexArray(mdl_ref->second.vaoid);
 
-	//copy object 3x3 model to ndc matrix to vtx shader
-	GLint uniform_var_loc1 =
-		glGetUniformLocation(GLApp::shdrpgms[shd_ref].GetHandle(),
-			"uModel_to_NDC");
-	if (uniform_var_loc1 >= 0) {
-		// Print the matrix elements
-		const glm::mat3& matrix = GLApp::GLObject::mdl_to_ndc_xform;
-
-		glUniformMatrix3fv(uniform_var_loc1, 1, GL_FALSE,
-			glm::value_ptr(matrix));
+	// Part 3: Copy object's color to fragment shader uniform variable uColor
+	GLint uniform_var_loc2 = glGetUniformLocation(shaderProgram.GetHandle(), "uColor");
+	if (uniform_var_loc2 >= 0) {
+		const glm::vec3& color = this->color;
+		glUniform3fv(uniform_var_loc2, 1, glm::value_ptr(color));
 	}
 	else {
-		std::cout << "Uniform variable doesn't exist!!!\n";
+		std::cout << "Uniform variable doesn't exist!!!" << std::endl;
 		std::exit(EXIT_FAILURE);
 	}
 
-	//render model
-	switch (raster)
-	{
-	case line:
-		glLineWidth(10.f);
-		glDrawArrays(models[mdl_ref].primitive_type, 0, models[mdl_ref].draw_cnt);
-		glLineWidth(1.f);
-		break;
-	case fill:
-		glDrawArrays(models[mdl_ref].primitive_type, 0, models[mdl_ref].draw_cnt);
-		break;
-	case point:
-		glPointSize(10.f);
-		glDrawArrays(models[mdl_ref].primitive_type, 0, models[mdl_ref].draw_cnt);
-		glPointSize(1.f);
-		break;
+	// Part 4: Copy object's model-to-NDC matrix to vertex shader's uniform variable uModelToNDC
+	GLint uniform_var_loc1 = glGetUniformLocation(shaderProgram.GetHandle(), "uModelToNDC");
+	if (uniform_var_loc1 >= 0) {
+		const glm::mat3& matrix = this->mdl_to_ndc_xform;
+		glUniformMatrix3fv(uniform_var_loc1, 1, GL_FALSE, glm::value_ptr(matrix));
 	}
-	
-	//cleanup
+	else {
+		std::cout << "Uniform variable doesn't exist!!!" << std::endl;
+		std::exit(EXIT_FAILURE);
+	}
+
+	// Part 5: Call glDrawArrays with appropriate arguments
+	const GLModel& model = mdl_ref->second;
+	glDrawArrays(model.primitive_type, 0, model.primitive_cnt);
+
+	// Part 6: Unbind VAO and unload shader program
 	glBindVertexArray(0);
-	shdrpgms[shd_ref].UnUse();
+	glUseProgram(0);
 }
 
 /**
@@ -176,7 +307,7 @@ to calculate the model-to-NDC transformation matrix (mdl_to_ndc_xform).
 void GLApp::GLObject::update(GLdouble delta_time)
 {
 	//update object orientation
-	angle_disp += static_cast<float>(angle_speed * delta_time);
+	orientation.x += static_cast<float>(orientation.y * delta_time);
 
 	//translation matrix
 	glm::mat3 transmtx = glm::mat3(1.f);
@@ -184,8 +315,8 @@ void GLApp::GLObject::update(GLdouble delta_time)
 
 	//rotation matrix
 	glm::mat3 rotmtx = glm::mat3(1.f);
-	rotmtx[0] = glm::vec3(std::cos(angle_disp), -std::sin(angle_disp), 0.f);
-	rotmtx[1] = glm::vec3(std::sin(angle_disp), std::cos(angle_disp), 0.f);
+	rotmtx[0] = glm::vec3(std::cos(orientation.x), -std::sin(orientation.x), 0.f);
+	rotmtx[1] = glm::vec3(std::sin(orientation.x), std::cos(orientation.x), 0.f);
 
 	//scale matrix
 	glm::mat3 scalmtx = glm::mat3(1.f);
@@ -196,143 +327,53 @@ void GLApp::GLObject::update(GLdouble delta_time)
 	mdl_to_ndc_xform = transmtx * rotmtx * scalmtx;
 }
 
+void GLApp::init_shdrpgms(std::string shdr_pgm_name, std::string vtx_shdr, std::string frg_shdr) {
+	std::vector<std::pair<GLenum, std::string>> shdr_files{
+	std::make_pair(GL_VERTEX_SHADER, vtx_shdr),
+	std::make_pair(GL_FRAGMENT_SHADER, frg_shdr)
+	};
+	GLSLShader shdr_pgm;
+	shdr_pgm.CompileLinkValidate(shdr_files);
+	if (GL_FALSE == shdr_pgm.IsLinked()) {
+		std::cout << "Unable to compile/link/validate shader programs\n";
+		std::cout << shdr_pgm.GetLog() << "\n";
+		std::exit(EXIT_FAILURE);
+	}
+	// add compiled, linked, and validated shader program to
+	// std::map container GLApp::shdrpgms
+	GLApp::shdrpgms[shdr_pgm_name] = shdr_pgm;
+}
+
+
 /*	
 *	@brief	Initialises neccesary variables and functions at the start of game loop.
+
 */
 void GLApp::init() {
-// Part 1: initialize OpenGL state ...
-	// clear colorbuffer with RGBA value in glClearColor ...
+	// Part 1: Initialize OpenGL state ...
 	glClearColor(1.f, 1.f, 1.f, 1.f);
-	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-// Part 2: use the entire window as viewport ...
+	// Part 2: Use the entire window as viewport ...
 	glViewport(0, 0, GLHelper::width, GLHelper::height);
-
-// Part 3: create as many shared shader programs as required
-// handles to shader programs must be contained in GLApp::shdrpgms
-
-	GLApp::VPSS shdr_file_names{ // vertex & fragment shader files
-	std::make_pair<std::string, std::string>
-	("../shaders/my-tutorial-3.vert", "../shaders/my-tutorial-3.frag")
-	};
-
-// Part 4: initialize as many geometric models as required
-// these geometric models must be contained in GLApp::models
-// We don't need to add any objects to container GLApp::objects
-// since the simulation begins with no objects being displayed
-
-	// create shader program from shader files in vector shdr_file_names
-	// and insert each shader program into container
-
-	// std::vector<GLSLShader> GLApp::shdrpgms;
-	GLApp::init_shdrpgms_cont(shdr_file_names);
-
-	GLApp::init_models_cont();
+	// Part 3: parse scene file $(SolutionDir)scenes/tutorial-4.scn
+	// and store repositories of models of type GLModel in container
+	// GLApp::models, store shader programs of type GLSLShader in
+	// container GLApp::shdrpgms, and store repositories of objects of
+	// type GLObject in container GLApp::objects
+	GLApp::init_scene("../scenes/tutorial-4.scn");
+	// Part 4: initialize camera
+	// explained in a later section ...
 }
+
+
 
 /*	update
 * 
 *	Updates variables every game loop
 */
-void GLApp::update() {
-	// Part 1: Update polygon rasterization mode ...
-	// Check if key 'P' is pressed
-	// If pressed, update polygon rasterization mode
-	if (GLHelper::keystateP==GL_TRUE)
-	{
-		switch (raster)
-		{
-		case fill:
-			raster = line;
-			break;
-		case line:
-			raster = point;
-			break;
-		case point:
-			raster = fill;
-			break;
-		}
-		GLHelper::keystateP = GL_FALSE;
-	}
+void GLApp::update() 
+{
 
-	// Part 2: Spawn or kill objects ...
-	// Check if left mouse button is pressed
-
-	if (GLHelper::mousestateLeft == GLFW_TRUE)
-	{
-		GLint max_size;
-		glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max_size); //maximum spawned objects
-		// If maximum object limit is not reached, spawn new object(s)
-		
-		if (static_cast<GLint>(objects.size() * 2) <= max_size && spawn_mode)
-		{
-			increase_count = objects.size(); //increase amount = objects size
-
-			for (int i = 0; i < increase_count || objects.size() == 0; ++i)
-			{
-				//Add objects
-				GLObject newobj{};
-				newobj.init();
-				
-				if (newobj.mdl_ref == 0) //if its a box, ++count of box
-				{
-					box_count++;
-				}
-				else if (newobj.mdl_ref == 1) //else ++ count of mystery
-				{
-					mystery_count++;
-				}
-				objects.emplace_back(newobj);
-			}
-		}
-		// Otherwise, kill oldest objects
-		else
-		{
-			spawn_mode = false;						
-			decrease_count = objects.size() / 2;	//delete half of total objects
-			
-			for (int i = 0; i < decrease_count; ++i)
-			{
-				if (objects.front().mdl_ref == 0)	//if its a box, decrease box count
-				{
-					box_count--;
-				}
-				else								//if its not a box, decrease mystery count
-				{
-					mystery_count--;
-				}
-				objects.pop_front();				//erase object from front of object list
-			}
-		}
-
-		if (objects.size() == 1) //if only 1 object remains, change back to spawn objects
-		{
-			spawn_mode = true;
-		}
-
-		//ensure count does not go to negative
-		if (mystery_count < 0) 
-		{
-			mystery_count = 0;
-		}
-		if (box_count < 0)
-		{
-			box_count = 0;
-		}
-		GLHelper::mousestateLeft = GLFW_RELEASE;
-	}
-
-	// Part 3:
-	// for each object in container GLApp::objects
-	// Update object's orientation
-	// A more elaborate implementation would animate the object's movement
-	// A much more elaborate implementation would animate the object's size
-	// Using updated attributes, compute world-to-ndc transformation matrix
-	for (auto& object : objects) 
-	{
-		object.update(GLHelper::delta_time);
-	}
 }
-
 
 /**
  * @brief	Draw the application's window.
@@ -349,27 +390,13 @@ void GLApp::draw()
 	// separate each piece of information using " | "
 	// see sample executable for example ...
 	// Print to window title bar
-	std::string title = "Tutorial 3 | Benjamin Lee | Obj: " + std::to_string(objects.size()) + " | Box: " + std::to_string(box_count) +
-		" | Mystery: " + std::to_string(mystery_count) +
+	std::string title = "Tutorial 3 | Benjamin Lee | Obj: " + std::to_string(objects.size()) + " | Box: " +
+		" | Mystery: " +
 		" | " + std::to_string(GLHelper::fps).substr(0, 5);//fps count
 	glfwSetWindowTitle(GLHelper::ptr_window, title.c_str());
 
 	// Part 2: Clear back buffer of color buffer
 	glClear(GL_COLOR_BUFFER_BIT);
-	
-	// Part 3: Change raster mode
-	switch (raster)
-	{
-	case fill:
-		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-		break;
-	case line:
-		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-		break;
-	case point:
-		glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
-		break;
-	}
 
 	// Part 4: Render each object in container GLApp::objects
 	for (auto const& x : GLApp::objects) {
@@ -381,224 +408,6 @@ void GLApp::cleanup() {
 	// empty for now
 }
 
-//rng for colours
-std::random_device rd;
-std::mt19937 box(rd());
-std::uniform_real_distribution<float> dis_color(0.0f, 1.0f);
-
-/**
-
-@brief Creates a box model.
-
-This function creates a box model by defining the vertex position and color attributes, generating
-
-Vertex Buffer Objects (VBOs) and allocating storage for the position and color data, generating a
-
-Vertex Array Object (VAO) and binding the attributes, generating an Index Buffer Object (IBO) and
-
-allocating storage for the index data. Finally, it creates and initializes a GLModel object with the
-
-necessary information and returns it.
-
-@return The created GLModel object representing a box.
-*/
-GLApp::GLModel GLApp::box_model()
-{
-	// Step 1: Define vertex pos and colour attributes
-	std::vector<glm::vec2> pos_vtx
-	{
-	{ -0.5f, -0.5f },   // Bottom-left vertex
-	{ 0.5f, -0.5f },    // Bottom-right vertex
-	{ 0.5f, 0.5f },     // Top-right vertex
-	{ -0.5f, 0.5f },    // Top-left vertex
-	{ -0.5f, -0.5f },   // Bottom-left vertex of the second triangle
-	{ 0.5f, 0.5f }      // Top-right vertex of the second triangle
-	};
-
-	std::vector<glm::vec3> clr_vtx
-	{
-		{ dis_color(box), dis_color(box), dis_color(box) },
-		{ dis_color(box), dis_color(box), dis_color(box) },
-		{ dis_color(box), dis_color(box), dis_color(box) },
-		{ dis_color(box), dis_color(box), dis_color(box) },
-		{ dis_color(box), dis_color(box), dis_color(box) },
-		{ dis_color(box), dis_color(box), dis_color(box) },
-	};
-
-	// Step 2: mysteryerate Vertex Buffer Objects (VBOs) and allocate storage for position and color data
-	GLuint vbo_hdl, color_vbo_hdl;
-	glCreateBuffers(1, &vbo_hdl);
-	glNamedBufferData(vbo_hdl, sizeof(glm::vec2) * pos_vtx.size(), pos_vtx.data(), GL_DYNAMIC_DRAW);
-
-	glCreateBuffers(1, &color_vbo_hdl);
-	glNamedBufferData(color_vbo_hdl, sizeof(glm::vec3) * clr_vtx.size(), clr_vtx.data(), GL_DYNAMIC_DRAW);
-
-	// Step 3: mysteryerate Vertex Array Object (VAO) and bind attributes
-	GLuint vaoid;
-	glCreateVertexArrays(1, &vaoid);
-	glEnableVertexArrayAttrib(vaoid, 0);
-	glVertexArrayVertexBuffer(vaoid, 0, vbo_hdl, 0, sizeof(glm::vec2));
-	glVertexArrayAttribFormat(vaoid, 0, 2, GL_FLOAT, GL_FALSE, 0);
-	glVertexArrayAttribBinding(vaoid, 0, 0);
-
-	// Bind color attribute
-	glEnableVertexArrayAttrib(vaoid, 1);
-	glVertexArrayVertexBuffer(vaoid, 1, color_vbo_hdl, 0, sizeof(glm::vec3));
-	glVertexArrayAttribFormat(vaoid, 1, 3, GL_FLOAT, GL_FALSE, 0);
-	glVertexArrayAttribBinding(vaoid, 1, 1);
-
-	// Step 4: mysteryerate Index Buffer Object (IBO) and allocate storage for index data
-	GLuint ibo_hdl;
-	std::vector<GLuint> indices;
-	for (int i = 0; i < static_cast<int>(pos_vtx.size()); ++i)
-		indices.push_back(i);
-	glCreateBuffers(1, &ibo_hdl);
-	glNamedBufferData(ibo_hdl, sizeof(GLuint) * indices.size(), indices.data(), GL_DYNAMIC_DRAW);
-
-	// Unbind VAO
-	glBindVertexArray(0);
-
-	// Create and initialize the GLModel object
-	GLApp::GLModel mdl{ 0 };
-	mdl.vaoid = vaoid;
-	mdl.primitive_type = GL_TRIANGLE_FAN; // Use GL_TRIANGLE_FAN to render a box
-	mdl.draw_cnt = indices.size(); // Number of indices
-	mdl.primitive_cnt = mdl.draw_cnt / 3; // Number of triangles (primitives)
-
-	return mdl;
-}
-
-/**
-
-@brief Creates a mystery model.
-
-This function generates a mystery model by defining the vertex positions and colors for a lighting shape,
-
-generating Vertex Buffer Objects (VBOs) and allocating storage for the position and color data, generating
-
-an Index Buffer Object (IBO) and allocating storage for the index data, generating a Vertex Array Object (VAO),
-
-and binding the attributes for position, color, and indices. Finally, it creates and initializes a GLModel
-
-object with the necessary information and returns it.
-
-@return The created GLModel object representing a mystery shape.
-*/
-GLApp::GLModel GLApp::mystery_model()
-{
-	// Step 1: mysteryerate vertex positions for a lighting shape
-	std::vector<glm::vec2> pos_vtx
-	{
-		{0.f,0.f},{0.f,0.5f},{-0.25f,0.f},
-		{0.f,0.f},{0.f,0.15f},{0.3f,0.25f},
-		{0.f,0.f},{0.f,-0.5f},{0.3f,0.25f}
-	};
-
-	std::vector<glm::vec3> clr_vtx;
-	for (size_t i = 0; i < pos_vtx.size(); ++i)
-	{
-		// mysteryerate random color for each vertex
-		glm::vec3 random_color(dis_color(box), dis_color(box), dis_color(box));
-		clr_vtx.push_back(random_color);
-	}
-	
-	// Step 2: mysteryerate Vertex Buffer Objects (VBOs) and allocate storage for position and color data
-	GLuint pos_vbo_hdl, color_vbo_hdl;
-	glCreateBuffers(1, &pos_vbo_hdl);
-	glNamedBufferData(pos_vbo_hdl, sizeof(glm::vec2) * pos_vtx.size(), pos_vtx.data(), GL_DYNAMIC_DRAW);
-
-	glCreateBuffers(1, &color_vbo_hdl);
-	glNamedBufferData(color_vbo_hdl, sizeof(glm::vec3) * clr_vtx.size(), clr_vtx.data(), GL_DYNAMIC_DRAW);
-
-	// Step 3: mysteryerate Index Buffer Object (IBO) and allocate storage for index data
-	GLuint ibo_hdl;
-	std::vector<GLuint> indices;
-	for (int i = 0; i < static_cast<int>(pos_vtx.size()); ++i)
-		indices.push_back(i);
-	glCreateBuffers(1, &ibo_hdl);
-	glNamedBufferData(ibo_hdl, sizeof(GLuint) * indices.size(), indices.data(), GL_DYNAMIC_DRAW);
-
-	// Step 4: mysteryerate Vertex Array Object (VAO) and bind attributes for position, color, and indices
-	GLuint vaoid;
-	glCreateVertexArrays(1, &vaoid);
-
-	// Bind position attribute
-	glEnableVertexArrayAttrib(vaoid, 0);
-	glVertexArrayVertexBuffer(vaoid, 0, pos_vbo_hdl, 0, sizeof(glm::vec2));
-	glVertexArrayAttribFormat(vaoid, 0, 2, GL_FLOAT, GL_FALSE, 0);
-	glVertexArrayAttribBinding(vaoid, 0, 0);
-
-	// Bind color attribute
-	glEnableVertexArrayAttrib(vaoid, 1);
-	glVertexArrayVertexBuffer(vaoid, 1, color_vbo_hdl, 0, sizeof(glm::vec3));
-	glVertexArrayAttribFormat(vaoid, 1, 3, GL_FLOAT, GL_FALSE, 0);
-	glVertexArrayAttribBinding(vaoid, 1, 1);
-
-	// Bind index buffer
-	glVertexArrayElementBuffer(vaoid, ibo_hdl);
-
-	// Unbind VAO
-	glBindVertexArray(0);
-
-	// Create and initialize the GLModel object
-	GLApp::GLModel mdl{};
-	mdl.vaoid = vaoid;
-	mdl.primitive_type = GL_TRIANGLE_STRIP; // Use GL_TRIANGLE_FAN to render the shape
-	mdl.draw_cnt = pos_vtx.size(); // number of vertices
-	mdl.primitive_cnt = mdl.draw_cnt / 3; // number of triangles
-
-	return mdl;
-}
-
-/**
-
-@brief Initializes additional models for the GLApp.
-
-This function adds the models generated by the box_model() and mystery_model() functions to the models
-
-vector of the GLApp. These models can then be used for rendering in the application.
-*/
-void GLApp::init_models_cont() {
-	GLApp::models.emplace_back(GLApp::box_model());
-	GLApp::models.emplace_back(GLApp::mystery_model());
-}
-
-/**
-
-@brief Initializes the shader programs container for the GLApp.
-
-This function initializes the shader programs container (shdrpgms) for the GLApp by compiling, linking, and
-
-validating the shader programs specified in the vpss parameter.
-
-@param vpss A vector of pairs representing the vertex and fragment shader file paths for each shader program.
-*/
-void GLApp::init_shdrpgms_cont(GLApp::VPSS const& vpss) {
-
-	// Clear the existing shader programs container
-	shdrpgms.clear();
-
-	// Iterate over the shader program pairs
-	for (const auto& x : vpss) {
-		// Create a vector to hold the shader file pairs
-		std::vector<std::pair<GLenum, std::string>> shdr_files;
-
-		// Add the vertex shader file path to the vector
-		shdr_files.emplace_back(std::make_pair(GL_VERTEX_SHADER, x.first));
-
-		// Add the fragment shader file path to the vector
-		shdr_files.emplace_back(std::make_pair(GL_FRAGMENT_SHADER, x.second));
-
-		// Create a new GLSLShader object
-		GLSLShader shdr_pgm;
-
-		// Compile, link, and validate the shader program
-		shdr_pgm.CompileLinkValidate(shdr_files);
-	
-		// Store the shader program in the shdrpgms container
-		GLApp::shdrpgms.emplace_back(shdr_pgm);
-	}
-}
 
 
 

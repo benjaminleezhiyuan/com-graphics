@@ -29,46 +29,53 @@ and transformations (in later labs).
 /*                                                                   includes
 ----------------------------------------------------------------------------- */
 
-struct GLApp {
-  
+struct GLApp 
+{
   static void init();
   static void update();
   static void draw();
   static void cleanup();
  
-  // container for shader programs and helper function(s) ...
-  static std::vector<GLSLShader> shdrpgms; // singleton
-  using VPSS = std::vector<std::pair<std::string, std::string>>;
-  static void init_shdrpgms_cont(VPSS const&); // initialize singleton
-  // encapsulates geometry - we call this abstraction a model
-  struct GLModel {
-	  GLenum primitive_type;
-	  GLuint primitive_cnt;
-	  GLuint vaoid;
-	  GLuint vboid;
-	  GLuint cboid;
-	  GLuint draw_cnt;
-  };
-  // container for models and helper function(s) ...
-  static std::vector<GLApp::GLModel> models; // singleton
-  static GLApp::GLModel box_model();
-  static GLApp::GLModel mystery_model();
-  static void init_models_cont(); // initialize singleton
+	struct GLModel 
+	{
+	GLenum primitive_type;
+	GLuint primitive_cnt;
+	GLuint vaoid;
+	GLuint draw_cnt;
+	std::vector<glm::vec2> vtx_pos;
+	std::vector<glm::vec3> index;
+	// you could add member functions for convenience if you so wish ...
+	void init(std::string model_name);	// read mesh data from file ...
+	void release(); // return buffers back to GPU ...
+	};
 
-  // encapsulates rendered object
-  struct GLObject {
-	  glm::vec2 scaling; // scaling
-	  GLfloat angle_speed, angle_disp; // orientation
-	  glm::vec2 position; // translation
-	  glm::mat3 mdl_to_ndc_xform;
-	  GLuint mdl_ref, shd_ref;
-	  // set up initial state
-	  void init();
-	  void draw() const;
-	  void update(GLdouble delta_time);
-  };
-  // container for objects ...
-  static std::list<GLApp::GLObject> objects; // singleton
+	struct GLObject {
+	glm::vec2 scaling;
+	glm::vec2 orientation;
+	glm::vec2 position;
+	glm::vec3 color;
+	glm::mat3 mdl_xform; // model (model-to-world) transform
+	glm::mat3 mdl_to_ndc_xform; // model-to-NDC transform
+	std::map<std::string, GLApp::GLModel>::iterator mdl_ref;
+	std::map<std::string, GLSLShader>::iterator shd_ref;
+	// you can implement them as in tutorial 3 ...
+	void init();
+	void draw() const;
+	//void update();
+	void update(GLdouble time_per_frame);
+	};
+static std::map<std::string, GLSLShader> shdrpgms; // singleton
+static std::map<std::string, GLModel> models; // singleton
+static std::map<std::string, GLObject> objects; // singleton
+
+
+static void init_shdrpgms(std::string shdr_pgm_name, std::string vtx_shdr, std::string frg_shdr);
+
+// function to insert shader program into container GLApp::shdrpgms ...
+static void insert_shdrpgm(std::string, std::string, std::string);
+// function to parse scene file ...
+static void init_scene(std::string);
+
 };
 
 #endif /* GLAPP_H */
