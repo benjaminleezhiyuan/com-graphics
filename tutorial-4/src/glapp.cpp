@@ -21,21 +21,22 @@ to OpenGL implementations.
 #include <random>
 #include <glapp.h>
 #include <glhelper.h>
+#include <glslshader.h>
 #include <array>
 #include <vector>
 #include <glm/gtc/type_ptr.hpp>
 
 // define singleton containers
-std::map<std::string, GLSLShader> shdrpgms;
-std::map<std::string, GLApp::GLModel> models;
-std::map<std::string, GLApp::GLObject> objects;
+std::map<std::string, GLSLShader> GLApp::shdrpgms;
+std::map<std::string, GLApp::GLModel> GLApp::models;
+std::map<std::string, GLApp::GLObject> GLApp::objects;
 
 std::vector<glm::vec2> vtx_pos;
 std::vector<glm::vec3> index;
 
-void init(std::string model_name)
+void GLApp::GLModel::init(std::string model_file_name)
 {
-	std::string file_name = "../meshes/" + model_name + ".msh";
+	std::string file_name = "../meshes/" + model_file_name + ".msh";
 	// Read data from file
 	std::ifstream file(file_name);
 	if (!file.is_open())
@@ -77,6 +78,24 @@ void init(std::string model_name)
 	file.close();
 }
 
+void GLApp::init_shdrpgms(std::string shdr_pgm_name, std::string vtx_shdr, std::string frg_shdr) 
+{
+	std::vector<std::pair<GLenum, std::string>> shdr_files{
+	std::make_pair(GL_VERTEX_SHADER, vtx_shdr),
+	std::make_pair(GL_FRAGMENT_SHADER, frg_shdr)
+	};
+	GLSLShader shdr_pgm;
+	shdr_pgm.CompileLinkValidate(shdr_files);
+	if (GL_FALSE == shdr_pgm.IsLinked()) {
+		std::cout << "Unable to compile/link/validate shader programs\n";
+		std::cout << shdr_pgm.GetLog() << "\n";
+		std::exit(EXIT_FAILURE);
+	}
+	// add compiled, linked, and validated shader program to
+	// std::map container GLApp::shdrpgms
+	GLApp::shdrpgms[shdr_pgm_name] = shdr_pgm;
+}
+
 void GLApp::init_scene(std::string scene_filename)
 {
 	std::ifstream ifs{ scene_filename, std::ios::in };
@@ -110,7 +129,7 @@ void GLApp::init_scene(std::string scene_filename)
 			// Initialize the model based on the file data
 			models[model_name].init(model_name);
 		}
-
+		
 		/*
 		add code to do this:
 		if shader program listed in the scene file is not present in
@@ -168,6 +187,13 @@ void GLApp::init_scene(std::string scene_filename)
 		auto modelRef = models.find(model_name);
 		auto shaderRef = shdrpgms.find(shaderP);
 
+		std::cout << model_name << std::endl;
+		std::cout << object_name << std::endl;
+		std::cout << shaderP << std::endl;
+		std::cout << r << " " << g << " " << b << std::endl;
+		std::cout << scaleX << " " << scaleY << std::endl;
+		std::cout << angle << " " << angularSpeed << std::endl;
+		std::cout << posX << " " << posY << std::endl;
 		// Create a GLObject and populate its properties
 		GLObject object;
 		object.mdl_ref = modelRef;
@@ -180,7 +206,6 @@ void GLApp::init_scene(std::string scene_filename)
 		objects.insert(std::make_pair(object_name, object));
 	}
 }
-
 
 void GLApp::GLModel::release()
 {
@@ -260,8 +285,8 @@ void GLApp::GLObject::draw() const
 	// Part 3: Copy object's color to fragment shader uniform variable uColor
 	GLint uniform_var_loc2 = glGetUniformLocation(shaderProgram.GetHandle(), "uColor");
 	if (uniform_var_loc2 >= 0) {
-		const glm::vec3& color = this->color;
-		glUniform3fv(uniform_var_loc2, 1, glm::value_ptr(color));
+		const glm::vec3& color2 = this->color;
+		glUniform3fv(uniform_var_loc2, 1, glm::value_ptr(color2));
 	}
 	else {
 		std::cout << "Uniform variable doesn't exist!!!" << std::endl;
@@ -327,24 +352,6 @@ void GLApp::GLObject::update(GLdouble delta_time)
 	mdl_to_ndc_xform = transmtx * rotmtx * scalmtx;
 }
 
-void GLApp::init_shdrpgms(std::string shdr_pgm_name, std::string vtx_shdr, std::string frg_shdr) {
-	std::vector<std::pair<GLenum, std::string>> shdr_files{
-	std::make_pair(GL_VERTEX_SHADER, vtx_shdr),
-	std::make_pair(GL_FRAGMENT_SHADER, frg_shdr)
-	};
-	GLSLShader shdr_pgm;
-	shdr_pgm.CompileLinkValidate(shdr_files);
-	if (GL_FALSE == shdr_pgm.IsLinked()) {
-		std::cout << "Unable to compile/link/validate shader programs\n";
-		std::cout << shdr_pgm.GetLog() << "\n";
-		std::exit(EXIT_FAILURE);
-	}
-	// add compiled, linked, and validated shader program to
-	// std::map container GLApp::shdrpgms
-	GLApp::shdrpgms[shdr_pgm_name] = shdr_pgm;
-}
-
-
 /*	
 *	@brief	Initialises neccesary variables and functions at the start of game loop.
 
@@ -363,8 +370,6 @@ void GLApp::init() {
 	// Part 4: initialize camera
 	// explained in a later section ...
 }
-
-
 
 /*	update
 * 
@@ -390,7 +395,7 @@ void GLApp::draw()
 	// separate each piece of information using " | "
 	// see sample executable for example ...
 	// Print to window title bar
-	std::string title = "Tutorial 3 | Benjamin Lee | Obj: " + std::to_string(objects.size()) + " | Box: " +
+	std::string title = "Tutorial 4 | Benjamin Lee | Obj: " + std::to_string(objects.size()) + " | Box: " +
 		" | Mystery: " +
 		" | " + std::to_string(GLHelper::fps).substr(0, 5);//fps count
 	glfwSetWindowTitle(GLHelper::ptr_window, title.c_str());
@@ -400,7 +405,7 @@ void GLApp::draw()
 
 	// Part 4: Render each object in container GLApp::objects
 	for (auto const& x : GLApp::objects) {
-		x.draw(); // call member function GLObject::draw()
+		x.second.draw(); // call member function GLObject::draw()
 	}
 }
 
