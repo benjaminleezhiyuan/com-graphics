@@ -1,5 +1,5 @@
 /**
- * @file 	my-tutorial-3.frag
+ * @file 	my-tutorial-4.frag
  * @author 	benjaminzhiyuan.lee@digipen.edu
  * @date	26/05/23
  * @brief 	Vertex shader source code for the application.
@@ -24,3 +24,4 @@ void main() {
 //fFragColor = vec4(vColor, 1.0);
 fFragColor = vec4(uColor, 1.0);
 }
+

@@ -18,6 +18,7 @@ to OpenGL implementations.
 /*                                                                   includes
 ----------------------------------------------------------------------------- */
 #include <iostream>
+#include <iomanip>
 #include <random>
 #include <glapp.h>
 #include <glhelper.h>
@@ -30,52 +31,211 @@ to OpenGL implementations.
 std::map<std::string, GLSLShader> GLApp::shdrpgms;
 std::map<std::string, GLApp::GLModel> GLApp::models;
 std::map<std::string, GLApp::GLObject> GLApp::objects;
+GLApp::Camera2D GLApp::cam;
 
-std::vector<glm::vec2> vtx_pos;
-std::vector<glm::vec3> index;
-
-void GLApp::GLModel::init(std::string model_file_name)
+//enumaration for raster mode
+enum mode
 {
-	std::string file_name = "../meshes/" + model_file_name + ".msh";
-	// Read data from file
-	std::ifstream file(file_name);
-	if (!file.is_open())
-	{
-		std::cout << "Failed to open square.msh" << std::endl;
-		EXIT_FAILURE;
+	fill,
+	line,
+	point
+};
+
+//store current raster mode
+static mode raster = fill;
+
+/*	
+*	@brief	Initialises neccesary variables and functions at the start of game loop.
+
+*/
+void GLApp::init() {
+	// Part 1: Initialize OpenGL state ...
+	glClearColor(1.f, 1.f, 1.f, 1.f);
+	// Part 2: Use the entire window as viewport ...
+	glViewport(0, 0, GLHelper::width, GLHelper::height);
+	// Part 3: parse scene file $(SolutionDir)scenes/tutorial-4.scn
+	// and store repositories of models of type GLModel in container
+	// GLApp::models, store shader programs of type GLSLShader in
+	// container GLApp::shdrpgms, and store repositories of objects of
+	// type GLObject in container GLApp::objects
+	GLApp::init_scene("../scenes/tutorial-4.scn");
+	// Part 4: initialize camera
+	// explained in a later section ...
+	cam.init(GLHelper::ptr_window, &objects.at("Camera"));
+}
+
+/*	update
+* 
+*	Updates variables every game loop
+*/
+void GLApp::update() 
+{
+	cam.update(GLHelper::ptr_window);
+
+	for (auto& [key, val] : objects) {
+		if (key == "Camera") continue;
+		val.update(GLHelper::delta_time);
 	}
 
-	// Process mesh data
+	if (GLHelper::keystateP == GL_TRUE)
+	{
+		switch (raster)
+		{
+		case fill:
+			raster = line;
+			break;
+		case line:
+			raster = point;
+			break;
+		case point:
+			raster = fill;
+			break;
+		}
+		GLHelper::keystateP = GL_FALSE;
+	}
+}
+
+/**
+ * @brief	Draw the application's window.
+			This function renders multiple viewports and sets the window title.
+ */
+void GLApp::draw() 
+{
+	// Part 1: write window title with the following (see sample executable):
+	// tutorial name - this should be "Tutorial 3"
+	// object count - how many objects are being displayed?
+	// how many of these objects are boxes?
+	// and, how many of these objects are the mystery model?
+	// current fps
+	// separate each piece of information using " | "
+	// see sample executable for example ...
+	// Print to window title bar
+	std::stringstream cam_pos{};
+	cam_pos << std::fixed << std::setprecision(2) << "(" << objects["Camera"].position.x << ", " << objects["Camera"].position.y << ")";
+	std::stringstream cam_orientation{};
+	cam_orientation << "Orientation: " << objects["Camera"].orientation.x << " degrees";
+	std::stringstream window_height{};
+	window_height << "Window height: " << cam.height;
+	std::stringstream fps{};
+	fps << std::fixed << std::setprecision(2) << "FPS: " << GLHelper::fps;
+	std::stringstream space{};
+	space << " | ";
+	std::stringstream title{};
+	title << "Tutorial 4 | Benjamin Lee | Camera Position " << cam_pos.str() << space.str() <<
+																cam_orientation.str() << space.str() <<
+																window_height.str() << space.str() <<
+																fps.str();
+	glfwSetWindowTitle(GLHelper::ptr_window, title.str().c_str());
+
+	// Part 2: Clear back buffer of color buffer
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	// Part 3: Change raster mode
+	switch (raster)
+	{
+	case fill:
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		break;
+	case line:
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		break;
+	case point:
+		glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
+		break;
+	}
+
+	// Part 4: Render each object in container GLApp::objects
+	for (auto const& [key,val] : GLApp::objects) 
+	{	
+		if (key == "Camera")
+		{
+			continue;
+		}
+		val.draw(); // call member function GLObject::draw()
+	}
+	//render camera
+	objects["Camera"].draw();
+}
+
+void GLApp::cleanup() 
+{
+	// empty for now
+}
+
+void GLApp::init_scene(std::string scene_filename)
+{
+	std::ifstream ifs{ scene_filename, std::ios::in };
+	if (!ifs) {
+		std::cout << "ERROR: Unable to open scene file: "
+			<< scene_filename << "\n";
+		exit(EXIT_FAILURE);
+	}
+	ifs.seekg(0, std::ios::beg);
+
 	std::string line;
-	while (std::getline(file, line))
+	getline(ifs, line);
+
+	std::istringstream line_sstm{ line };
+	int obj_cnt{};
+	line_sstm >> obj_cnt;
+	while (obj_cnt--)
 	{
-		std::istringstream iss(line);
+		//get model name and init model if not found
+		getline(ifs, line);
+		std::istringstream line_modelname{ line };
+		std::string model_name;
+		line_modelname >> model_name;
 
-		char type;
-		iss >> type;
-		if (type == 'n')
-		{
-			std::string model_name;
-			iss >> model_name;
+		if (models.find(model_name) == models.end()) {
+			GLModel mdl{};
+			mdl.init(model_name);
+			models[model_name] = mdl;
 		}
-		else if (type == 'v')
-		{
-			float x, y;
-			iss >> x >> y;
-			vtx_pos.emplace_back(x, y);
-		}
-		else if (type == 't')
-		{
-			int v1, v2, v3;
-			iss >> v1 >> v2 >> v3;
-			index.emplace_back(v1, v2, v3);
-		}
-		else if (type == 'f')
-		{
 
+		//get model name
+		getline(ifs, line);
+		GLObject obj{};
+		std::istringstream line_objname{ line };
+		line_objname >> obj.name;
+
+		//get shader program name and init shader program if not found
+		getline(ifs, line);
+		std::istringstream line_shdrpgmname{ line };
+		std::string shdrpgm_name;
+		line_shdrpgmname >> shdrpgm_name;
+
+		if (shdrpgms.find(shdrpgm_name) == shdrpgms.end()) {
+			std::string vtx_shdr{}, frg_shdr{};
+			line_shdrpgmname >> vtx_shdr >> frg_shdr;
+			init_shdrpgms(shdrpgm_name, vtx_shdr, frg_shdr);
 		}
+
+		//get color of object
+		getline(ifs, line);
+		std::istringstream line_color{ line };
+		line_color >> obj.color[0] >> obj.color[1] >> obj.color[2];
+
+		//get scale of object
+		getline(ifs, line);
+		std::istringstream line_scale{ line };
+		line_scale >> obj.scaling.x >> obj.scaling.y;
+
+		//get angular disp and angular speed of object
+		getline(ifs, line);
+		std::istringstream line_orientation{ line };
+		line_orientation >> obj.orientation.x >> obj.orientation.y;
+
+		//get position of object
+		getline(ifs, line);
+		std::istringstream line_position{ line };
+		line_position >> obj.position.x >> obj.position.y;
+
+		//set mdl_ref and shd_ref
+		obj.mdl_ref = models.find(model_name);
+		obj.shd_ref = shdrpgms.find(shdrpgm_name);
+
+		objects[obj.name] = obj;
 	}
-	file.close();
 }
 
 void GLApp::init_shdrpgms(std::string shdr_pgm_name, std::string vtx_shdr, std::string frg_shdr) 
@@ -96,115 +256,185 @@ void GLApp::init_shdrpgms(std::string shdr_pgm_name, std::string vtx_shdr, std::
 	GLApp::shdrpgms[shdr_pgm_name] = shdr_pgm;
 }
 
-void GLApp::init_scene(std::string scene_filename)
+void GLApp::GLModel::init(std::string model_file_name)
 {
-	std::ifstream ifs{ scene_filename, std::ios::in };
+	std::string mesh = "../meshes/" + model_file_name + ".msh";
+	std::ifstream ifs{ mesh, std::ios::in };
 	if (!ifs) {
-		std::cout << "ERROR: Unable to open scene file: "
-			<< scene_filename << "\n";
+		std::cout << "ERROR: Unable to open mesh file: "
+			<< mesh << "\n";
 		exit(EXIT_FAILURE);
 	}
 	ifs.seekg(0, std::ios::beg);
-	std::string line;
-	getline(ifs, line); // first line is count of objects in scene
-	std::istringstream line_sstm{ line };
-	int obj_cnt;
-	line_sstm >> obj_cnt; // read count of objects in scene
-	while (obj_cnt--) // read each object's parameters
-	{
-		getline(ifs, line); // 1st parameter: model's name
-		std::istringstream line_modelname{ line };
-		std::string model_name;
-		line_modelname >> model_name;
-		/*
-		add code to do this:
-		if model with name model_name is not present in std::map container
-		called models, then add this model to the container
-		*/
-		// Check if model with name model_name is already present in the models map
-		if (models.find(model_name) == models.end())
-		{
-			// Model doesn't exist in the map, create and add it
-			GLModel model;
-			// Initialize the model based on the file data
-			models[model_name].init(model_name);
+
+	std::string lines, name;
+	std::vector<glm::vec2> pos_vtx;
+	std::vector<GLushort> idx_vtx;
+	pos_vtx.clear();
+	idx_vtx.clear();
+	while (getline(ifs, lines)) {
+		std::istringstream line{ lines };
+		std::string prefix;
+		line >> prefix;
+		// read name
+		if (prefix == "n") {
+			line >> name;
 		}
-		
-		/*
-		add code to do this:
-		if shader program listed in the scene file is not present in
-		std::map container called shdrpgms, then add this model to the
-		container
-		*/
-		getline(ifs, line); //name of object
-		std::istringstream line_objectname{ line };
-		std::string object_name;
-		line_objectname >> object_name;
-
-		getline(ifs, line); //shader program name
-		std::string shaderP, vtx_shd, frg_shd;
-		std::istringstream shader_prg{ line };
-		shader_prg >> shaderP >> vtx_shd >> frg_shd;
-
-		//init shader program
-		init_shdrpgms(shaderP, vtx_shd, frg_shd);
-
-		/*
-		add code to do this:
-		read remaining parameters of object from file:
-		object's name
-		RGB parameters for rendering object's model geometry
-		scaling factors to be applied on object's model
-		orientation factors: initial angular orientation and angular speed
-		object's position in game world
-		set data member GLApp::GLObject::mdl_ref to iterator that points to
-		model instantiated by this object
-		set data member GLApp::GLObject::shd_ref to iterator that points to
-		shader program used by this object
-		insert this object to std::map container objects
-		*/
-		getline(ifs, line); //rgb values
-		std::istringstream color{ line };
-		float r, g, b;
-		color >> r >> g >> b;
-
-		getline(ifs, line); // Scaling factors to be applied on object's model
-		std::istringstream line_scaling{ line };
-		float scaleX, scaleY;
-		line_scaling >> scaleX >> scaleY;
-
-		getline(ifs, line); // Orientation factors: initial angular orientation and angular speed
-		std::istringstream line_orientation{ line };
-		float angle, angularSpeed;
-		line_orientation >> angle >> angularSpeed;
-
-		getline(ifs, line); // Object's position in the game world
-		std::istringstream line_position{ line };
-		float posX, posY;
-		line_position >> posX >> posY;
-
-		// Set the references to the model and shader program
-		auto modelRef = models.find(model_name);
-		auto shaderRef = shdrpgms.find(shaderP);
-
-		std::cout << model_name << std::endl;
-		std::cout << object_name << std::endl;
-		std::cout << shaderP << std::endl;
-		std::cout << r << " " << g << " " << b << std::endl;
-		std::cout << scaleX << " " << scaleY << std::endl;
-		std::cout << angle << " " << angularSpeed << std::endl;
-		std::cout << posX << " " << posY << std::endl;
-		// Create a GLObject and populate its properties
-		GLObject object;
-		object.mdl_ref = modelRef;
-		object.shd_ref = shaderRef;
-		object.color = glm::vec3(r, g, b);
-		object.scaling = glm::vec2(scaleX, scaleY);
-		object.orientation = glm::vec2(angle, angularSpeed);
-		object.position = glm::vec2(posX, posY);
-
-		objects.insert(std::make_pair(object_name, object));
+		// read vertex position
+		else if (prefix == "v") {
+			glm::vec2 pos{};
+			line >> pos.x >> pos.y;
+			pos_vtx.emplace_back(pos);
+		}
+		// read triangle primitives rendered as GL_TRIANGLES
+		else if (prefix == "t") {
+			primitive_type = GL_TRIANGLES;
+			GLushort idx{};
+			while (line >> idx) {
+				idx_vtx.emplace_back(idx);
+			}
+		}
+		// read triangle primitives rendered as GL_TRIANGLE_FAN
+		else if (prefix == "f") {
+			primitive_type = GL_TRIANGLE_FAN;
+			GLushort idx{};
+			while (line >> idx) {
+				idx_vtx.emplace_back(idx);
+			}
+		}
 	}
+	//transfer vertex position attributes to VBO
+	// creating a buffer object
+	GLuint vbo_hdl;
+	glCreateBuffers(1, &vbo_hdl);
+	// allocating and filling data store
+	glNamedBufferStorage(vbo_hdl, sizeof(glm::vec2) * pos_vtx.size(),
+		nullptr, GL_DYNAMIC_STORAGE_BIT);
+	glNamedBufferSubData(vbo_hdl, 0, sizeof(glm::vec2) * pos_vtx.size(), pos_vtx.data());
+
+	// creating vertex array object
+	glCreateVertexArrays(1, &vaoid);
+	// VAO setup for position attributes
+	glEnableVertexArrayAttrib(vaoid, 0);
+	glVertexArrayVertexBuffer(vaoid, 3, vbo_hdl, 0, sizeof(glm::vec2));
+	glVertexArrayAttribFormat(vaoid, 0, 2, GL_FLOAT, GL_FALSE, 0);
+	glVertexArrayAttribBinding(vaoid, 0, 3);
+
+	// transfer topo information to GPU
+	GLuint ebo_hdl;
+	glCreateBuffers(1, &ebo_hdl);
+	glNamedBufferStorage(ebo_hdl,
+		sizeof(GLushort) * idx_vtx.size(), reinterpret_cast<GLvoid*>(idx_vtx.data()),
+		GL_DYNAMIC_STORAGE_BIT);
+
+	glVertexArrayElementBuffer(vaoid, ebo_hdl);
+
+	glBindVertexArray(0);
+
+	draw_cnt = idx_vtx.size();		// number of vertices
+	primitive_cnt = idx_vtx.size();		// number of primitives unused
+}
+
+void GLApp::Camera2D::init(GLFWwindow* win, GLApp::GLObject* ptr) 
+{
+	pgo = ptr;
+
+	GLsizei fb_width{}, fb_height{};
+	glfwGetFramebufferSize(win, &fb_width, &fb_height);
+	ar = static_cast<GLfloat>(fb_width) / fb_height;
+
+	GLfloat rad = glm::radians(pgo->orientation.x);
+	up = glm::vec2{ -sin(rad), cos(rad) };
+	right = glm::vec2{ cos(rad), sin(rad) };
+
+	view_xform = { glm::vec3{1, 0, 0},
+				   glm::vec3{0, 1, 0},
+				   glm::vec3{-pgo->position.x, -pgo->position.y, 1} };
+
+	camwin_to_ndc_xform = { glm::vec3{2.f / static_cast<float>(fb_width), 0, 0},
+							glm::vec3{0, 2.f / static_cast<float>(fb_height), 0},
+							glm::vec3{0, 0, 1} };
+
+	world_to_ndc_xform = camwin_to_ndc_xform * view_xform;
+}
+
+void GLApp::Camera2D::update(GLFWwindow*) {
+	left_turn_flag = GLHelper::keystateH;
+	right_turn_flag = GLHelper::keystateK;
+	move_flag = GLHelper::keystateU;
+	zoom_flag = GLHelper::keystateZ;
+
+	if (GLHelper::keystateV) {
+		camtype_flag = camtype_flag ? GL_FALSE : GL_TRUE;
+		GLHelper::keystateV = GL_FALSE;
+	}
+
+	//update camera orientation
+	if (left_turn_flag || right_turn_flag) {
+		
+		if (left_turn_flag) {
+			pgo->orientation.x += pgo->orientation.y;
+			if (pgo->orientation.x > 360.f) pgo->orientation.x = 0.f;
+		}
+		else {
+			pgo->orientation.x -= pgo->orientation.y;
+			if (pgo->orientation.x < -360.f) pgo->orientation.x = 0.f;
+		}
+
+		GLfloat rad = glm::radians(pgo->orientation.x);
+		up = glm::vec2{ -sin(rad), cos(rad) };
+		right = glm::vec2{ cos(rad), sin(rad) };
+	}
+
+	if (move_flag) {
+		pgo->position = pgo->position + (linear_speed * up);
+	}
+
+	if (zoom_flag) {
+		if (height >= max_height) {
+			height_chg_dir = -1;
+		}
+		else if (height <= min_height) {
+			height_chg_dir = 1;
+		}
+
+		height += height_chg_dir * height_chg_val;
+		zoom_flag = GL_FALSE;
+	}
+
+	if (camtype_flag) {
+		view_xform = { glm::vec3{1, 0, 0},
+					   glm::vec3{0, 1, 0},
+					   glm::vec3{-pgo->position.x, -pgo->position.y, 1} };
+	}
+	else {
+		view_xform = { glm::vec3{right.x, up.x, 0},
+					   glm::vec3{right.y, up.y, 0},
+					   glm::vec3{-(glm::dot(right,pgo->position)), -(glm::dot(up,pgo->position)), 1} };
+	}
+
+	GLfloat angle_rad = glm::radians(pgo->orientation.x);
+	glm::mat3 scale_mtx = { glm::vec3{pgo->scaling.x, 0, 0},
+							glm::vec3{0, pgo->scaling.y, 0},
+							glm::vec3{0, 0, 1} };
+
+	glm::mat3 rot_mtx = { glm::vec3{cos(angle_rad), sin(angle_rad), 0},
+						  glm::vec3{-sin(angle_rad), cos(angle_rad), 0},
+						  glm::vec3{0, 0, 1} };
+
+	glm::mat3 trans_mtx = { glm::vec3{1, 0, 0},
+							glm::vec3{0, 1, 0},
+							glm::vec3{pgo->position.x, pgo->position.y, 1} };
+
+	pgo->mdl_xform = trans_mtx * rot_mtx * scale_mtx;
+
+	camwin_to_ndc_xform = { glm::vec3{2.f / static_cast<GLfloat>(height * ar), 0, 0},
+							glm::vec3{0, 2.f / static_cast<GLfloat>(height), 0},
+							glm::vec3{0, 0, 1} };
+
+	world_to_ndc_xform = camwin_to_ndc_xform * view_xform;
+
+	pgo->mdl_to_ndc_xform = world_to_ndc_xform * pgo->mdl_xform;
 }
 
 void GLApp::GLModel::release()
@@ -276,41 +506,37 @@ unusing the shader program.
 */
 void GLApp::GLObject::draw() const
 {	
-	// Part 1: Get the shader program in use by this object
-	const GLSLShader& shaderProgram = shd_ref->second;
+	shd_ref->second.Use();
 
-	// Part 2: Bind object's VAO handle
 	glBindVertexArray(mdl_ref->second.vaoid);
 
-	// Part 3: Copy object's color to fragment shader uniform variable uColor
-	GLint uniform_var_loc2 = glGetUniformLocation(shaderProgram.GetHandle(), "uColor");
-	if (uniform_var_loc2 >= 0) {
-		const glm::vec3& color2 = this->color;
-		glUniform3fv(uniform_var_loc2, 1, glm::value_ptr(color2));
-	}
-	else {
-		std::cout << "Uniform variable doesn't exist!!!" << std::endl;
-		std::exit(EXIT_FAILURE);
-	}
+	GLint uniform_var_loc1 = glGetUniformLocation(shd_ref->second.GetHandle(), "uModel_to_NDC");
 
-	// Part 4: Copy object's model-to-NDC matrix to vertex shader's uniform variable uModelToNDC
-	GLint uniform_var_loc1 = glGetUniformLocation(shaderProgram.GetHandle(), "uModelToNDC");
 	if (uniform_var_loc1 >= 0) {
-		const glm::mat3& matrix = this->mdl_to_ndc_xform;
-		glUniformMatrix3fv(uniform_var_loc1, 1, GL_FALSE, glm::value_ptr(matrix));
+		glUniformMatrix3fv(uniform_var_loc1, 1, GL_FALSE, glm::value_ptr(mdl_to_ndc_xform));
 	}
 	else {
-		std::cout << "Uniform variable doesn't exist!!!" << std::endl;
+		std::cout << "Uniform variable 1 doesn't exist\n";
 		std::exit(EXIT_FAILURE);
 	}
 
-	// Part 5: Call glDrawArrays with appropriate arguments
-	const GLModel& model = mdl_ref->second;
-	glDrawArrays(model.primitive_type, 0, model.primitive_cnt);
+	GLint uniform_var_loc2 = glGetUniformLocation(shd_ref->second.GetHandle(), "uColor");
 
-	// Part 6: Unbind VAO and unload shader program
+	if (uniform_var_loc2 >= 0) {
+		glUniform3fv(uniform_var_loc2, 1, glm::value_ptr(color));
+	}
+	else {
+		std::cout << "Uniform variable 2 doesn't exist\n";
+		std::exit(EXIT_FAILURE);
+	}
+
+	//glVertexAttrib3f(1, color.r, color.g, color.b);
+	glDrawElements(mdl_ref->second.primitive_type, mdl_ref->second.draw_cnt, GL_UNSIGNED_SHORT, NULL);
+	//glDrawArrays(mdl_ref->second.primitive_type, 0, mdl_ref->second.draw_cnt);
+
 	glBindVertexArray(0);
-	glUseProgram(0);
+
+	shd_ref->second.UnUse();
 }
 
 /**
@@ -331,87 +557,28 @@ to calculate the model-to-NDC transformation matrix (mdl_to_ndc_xform).
 */
 void GLApp::GLObject::update(GLdouble delta_time)
 {
-	//update object orientation
-	orientation.x += static_cast<float>(orientation.y * delta_time);
+	glm::mat3 scale_mtx{ scaling.x,			0,	0,
+									 0,	scaling.y,	0,
+									 0,			0,	1 };
 
-	//translation matrix
-	glm::mat3 transmtx = glm::mat3(1.f);
-	transmtx[2] = glm::vec3(position.x, position.y, 1.f);
+	glm::mat3 trans_mtx{ 1,			0,0,
+						 0,			1,0,
+				position.x,position.y,1 };
 
-	//rotation matrix
-	glm::mat3 rotmtx = glm::mat3(1.f);
-	rotmtx[0] = glm::vec3(std::cos(orientation.x), -std::sin(orientation.x), 0.f);
-	rotmtx[1] = glm::vec3(std::sin(orientation.x), std::cos(orientation.x), 0.f);
+	
+	orientation.x += static_cast<GLfloat>(orientation.y * delta_time);
+	float rad = glm::radians(orientation.x);
 
-	//scale matrix
-	glm::mat3 scalmtx = glm::mat3(1.f);
-	scalmtx[0][0] = scaling.x;
-	scalmtx[1][1] = scaling.y;
+	glm::mat3 rot_mtx{ glm::cos(rad), glm::sin(rad), 0,
+					  -glm::sin(rad), glm::cos(rad), 0,
+								   0, 			  0, 1 };
 
-	//perform transform calculations
-	mdl_to_ndc_xform = transmtx * rotmtx * scalmtx;
+	mdl_xform = trans_mtx * rot_mtx * scale_mtx;
+	mdl_to_ndc_xform = cam.world_to_ndc_xform * mdl_xform;
 }
 
-/*	
-*	@brief	Initialises neccesary variables and functions at the start of game loop.
 
-*/
-void GLApp::init() {
-	// Part 1: Initialize OpenGL state ...
-	glClearColor(1.f, 1.f, 1.f, 1.f);
-	// Part 2: Use the entire window as viewport ...
-	glViewport(0, 0, GLHelper::width, GLHelper::height);
-	// Part 3: parse scene file $(SolutionDir)scenes/tutorial-4.scn
-	// and store repositories of models of type GLModel in container
-	// GLApp::models, store shader programs of type GLSLShader in
-	// container GLApp::shdrpgms, and store repositories of objects of
-	// type GLObject in container GLApp::objects
-	GLApp::init_scene("../scenes/tutorial-4.scn");
-	// Part 4: initialize camera
-	// explained in a later section ...
-}
 
-/*	update
-* 
-*	Updates variables every game loop
-*/
-void GLApp::update() 
-{
-
-}
-
-/**
- * @brief	Draw the application's window.
-			This function renders multiple viewports and sets the window title.
- */
-void GLApp::draw() 
-{
-	// Part 1: write window title with the following (see sample executable):
-	// tutorial name - this should be "Tutorial 3"
-	// object count - how many objects are being displayed?
-	// how many of these objects are boxes?
-	// and, how many of these objects are the mystery model?
-	// current fps
-	// separate each piece of information using " | "
-	// see sample executable for example ...
-	// Print to window title bar
-	std::string title = "Tutorial 4 | Benjamin Lee | Obj: " + std::to_string(objects.size()) + " | Box: " +
-		" | Mystery: " +
-		" | " + std::to_string(GLHelper::fps).substr(0, 5);//fps count
-	glfwSetWindowTitle(GLHelper::ptr_window, title.c_str());
-
-	// Part 2: Clear back buffer of color buffer
-	glClear(GL_COLOR_BUFFER_BIT);
-
-	// Part 4: Render each object in container GLApp::objects
-	for (auto const& x : GLApp::objects) {
-		x.second.draw(); // call member function GLObject::draw()
-	}
-}
-
-void GLApp::cleanup() {
-	// empty for now
-}
 
 
 

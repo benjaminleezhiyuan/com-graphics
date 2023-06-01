@@ -5,7 +5,7 @@
 
 @co-author	benjaminzhiyuan.lee@digipen.edu
 @date		26/05/2023
-@ammendent	added mousestateLeft boolean.
+@ammendent	added keystate for V,Z,H,K and U
 
 This file contains the declaration of namespace Helper that encapsulates the
 functionality required to create an OpenGL context using GLFW; use GLEW
@@ -47,6 +47,11 @@ struct GLHelper
 	  double xoffset, double yoffset)noexcept;
   static void mousepos_cb(GLFWwindow*, double xpos, double ypos)noexcept;
   static GLboolean keystateP;
+  static GLboolean keystateV;
+  static GLboolean keystateZ;
+  static GLboolean keystateH;
+  static GLboolean keystateK;
+  static GLboolean keystateU;
   static GLboolean mousestateLeft;
   static void update_time(double fpsCalcInt = 1.0);
 

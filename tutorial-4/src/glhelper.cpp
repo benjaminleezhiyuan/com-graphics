@@ -30,6 +30,11 @@ GLdouble GLHelper::delta_time;
 std::string GLHelper::title;
 GLFWwindow* GLHelper::ptr_window;
 GLboolean GLHelper::keystateP = GL_FALSE;
+GLboolean GLHelper::keystateK = GL_FALSE;
+GLboolean GLHelper::keystateU = GL_FALSE;
+GLboolean GLHelper::keystateZ = GL_FALSE;
+GLboolean GLHelper::keystateV = GL_FALSE;
+GLboolean GLHelper::keystateH = GL_FALSE;
 GLboolean GLHelper::mousestateLeft = GL_FALSE;
 
 
@@ -232,19 +237,40 @@ void GLHelper::key_cb(GLFWwindow* pwin, int key, int scancode, int
     UNREFERENCED_PARAMETER(mod);
     UNREFERENCED_PARAMETER(scancode);
     // key state changes from released to pressed
-    if (GLFW_PRESS == action) {
-        if (GLFW_KEY_ESCAPE == key) {
+    if (GLFW_PRESS == action) 
+    {
+        if (GLFW_KEY_ESCAPE == key) 
+        {
             glfwSetWindowShouldClose(pwin, GLFW_TRUE);
         }
         keystateP = (key == GLFW_KEY_P) ? GL_TRUE : GL_FALSE;
+        keystateV = (key == GLFW_KEY_V) ? GL_TRUE : GL_FALSE;
+        keystateZ = (key == GLFW_KEY_Z) ? GL_TRUE : GL_FALSE;
+        keystateH = (key == GLFW_KEY_H) ? GL_TRUE : GL_FALSE;
+        keystateK = (key == GLFW_KEY_K) ? GL_TRUE : GL_FALSE;
+        keystateU = (key == GLFW_KEY_U) ? GL_TRUE : GL_FALSE;
+        
         }
+
     else if (GLFW_REPEAT == action) {
         // key state was and is being pressed
         keystateP = GL_FALSE;
+        keystateV = GL_FALSE;
+        keystateZ = (key == GLFW_KEY_Z) ? GL_TRUE : GL_FALSE;
+        keystateH = (key == GLFW_KEY_H) ? GL_TRUE : GL_FALSE;
+        keystateK = (key == GLFW_KEY_K) ? GL_TRUE : GL_FALSE;
+        keystateU = (key == GLFW_KEY_U) ? GL_TRUE : GL_FALSE;
+        
     }
     else if (GLFW_RELEASE == action) {
         // key start changes from pressed to released
         keystateP = GL_FALSE;
+        keystateV = GL_FALSE;
+        keystateZ = GL_FALSE;
+        keystateH = GL_FALSE;
+        keystateK = GL_FALSE;
+        keystateU = GL_FALSE;
+
     }
 }
 
