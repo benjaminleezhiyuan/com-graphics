@@ -5,9 +5,7 @@
 
 @co-author	benjaminzhiyuan.lee@digipen.edu
 @date		26/05/2023
-@ammendent	edited init update and draw functions. Added object init draw and update functions.
 			
-
 This file implements functionality useful and necessary to build OpenGL
 applications including use of external APIs such as GLFW to create a
 window and start up an OpenGL context and to extract function pointers

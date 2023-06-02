@@ -5,7 +5,6 @@
 
 @co-author	benjaminzhiyuan.lee@digipen.edu
 @date		26/05/2023
-@ammendent	Updated the GLApp Struct to do instanced rendering
 
 This file contains the declaration of namespace GLApp that encapsulates the
 functionality required to implement an OpenGL application including 

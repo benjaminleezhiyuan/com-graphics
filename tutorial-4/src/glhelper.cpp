@@ -5,7 +5,6 @@
 
 @co-author	benjaminzhiyuan.lee@digipen.edu
 @date		26/05/2023
-@ammendent  updated mousebutton_cb to change mousestateLeft.
 
 This file implements functionality useful and necessary to build OpenGL
 applications including use of external APIs such as GLFW to create a
