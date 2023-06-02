@@ -165,14 +165,19 @@ void GLApp::draw()
 }
 
 /**
- * @brief Cleanup function for the OpenGL application.
- *
- * This function is called to clean up any resources or perform any necessary
- * cleanup tasks before exiting the application. Currently, this function is empty.
- */
+
+@brief Cleans up the resources used by the GLApp.
+
+This function releases the resources associated with each model in the GLApp.
+It calls the release() function for each model, including "triangle", "square", and "circle",
+to invalidate buffer data and delete the vertex array objects (VAOs) used by the models.
+It is recommended to call this function before exiting the GLApp to properly clean up resources.
+*/
 void GLApp::cleanup() 
 {
-	// empty for now
+	models["triangle"].release();
+	models["square"].release();
+	models["circle"].release();
 }
 
 /**
@@ -496,15 +501,16 @@ void GLApp::Camera2D::update(GLFWwindow*) {
 }
 
 /**
- * @brief Release any resources held by the GLModel.
- *
- * This function releases any resources held by the GLModel, such as buffers or allocated memory.
- * It should be called when the GLModel is no longer needed to free up resources and prevent memory leaks.
- * After calling this function, the GLModel should not be used anymore unless it is re-initialized.
- */
+
+@brief Releases the resources associated with the GLModel.
+
+This function invalidates the buffer data and deletes the vertex array object (VAO) used by the GLModel.
+It is recommended to call this function when the GLModel is no longer needed to free up system resources.
+*/
 void GLApp::GLModel::release()
 {
-
+	glInvalidateBufferData(vaoid);
+	glDeleteBuffers(1, &vaoid);
 }
 
 /**
