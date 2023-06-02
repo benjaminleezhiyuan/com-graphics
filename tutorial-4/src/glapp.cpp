@@ -44,10 +44,12 @@ enum mode
 //store current raster mode
 static mode raster = fill;
 
-/*	
-*	@brief	Initialises neccesary variables and functions at the start of game loop.
-
-*/
+/**
+ * @brief Initialize the OpenGL application.
+ *
+ * This function sets up the initial state of the application, including
+ * the OpenGL state, viewport, loading scene data, and initializing the camera.
+ */
 void GLApp::init() {
 	// Part 1: Initialize OpenGL state ...
 	glClearColor(1.f, 1.f, 1.f, 1.f);
@@ -64,10 +66,13 @@ void GLApp::init() {
 	cam.init(GLHelper::ptr_window, &objects.at("Camera"));
 }
 
-/*	update
-* 
-*	Updates variables every game loop
-*/
+/**
+ * @brief Update function for the OpenGL application.
+ *
+ * This function is called every frame to update the state of the application.
+ * It updates the camera, updates objects in the scene (excluding the camera),
+ * and handles a key press event to switch between different rasterization modes.
+ */
 void GLApp::update() 
 {
 	cam.update(GLHelper::ptr_window);
@@ -96,8 +101,12 @@ void GLApp::update()
 }
 
 /**
- * @brief	Draw the application's window.
-			This function renders multiple viewports and sets the window title.
+ * @brief Draw function for the OpenGL application.
+ *
+ * This function is called every frame to perform rendering tasks.
+ * It updates the window title with information about the camera position,
+ * orientation, window height, and FPS. It also clears the color buffer,
+ * changes the rasterization mode, and renders each object in the scene.
  */
 void GLApp::draw() 
 {
@@ -157,11 +166,25 @@ void GLApp::draw()
 	objects["Camera"].draw();
 }
 
+/**
+ * @brief Cleanup function for the OpenGL application.
+ *
+ * This function is called to clean up any resources or perform any necessary
+ * cleanup tasks before exiting the application. Currently, this function is empty.
+ */
 void GLApp::cleanup() 
 {
 	// empty for now
 }
 
+/**
+ * @brief Initialize the scene based on the provided scene file.
+ *
+ * This function reads a scene file and initializes the models, objects,
+ * and shader programs based on the data in the file.
+ *
+ * @param scene_filename The path to the scene file to be loaded.
+ */
 void GLApp::init_scene(std::string scene_filename)
 {
 	std::ifstream ifs{ scene_filename, std::ios::in };
@@ -238,6 +261,17 @@ void GLApp::init_scene(std::string scene_filename)
 	}
 }
 
+/**
+ * @brief Initialize a shader program.
+ *
+ * This function compiles, links, and validates a shader program using the
+ * provided vertex and fragment shader source code. It adds the compiled,
+ * linked, and validated shader program to the GLApp::shdrpgms map container.
+ *
+ * @param shdr_pgm_name The name to associate with the shader program.
+ * @param vtx_shdr The source code for the vertex shader.
+ * @param frg_shdr The source code for the fragment shader.
+ */
 void GLApp::init_shdrpgms(std::string shdr_pgm_name, std::string vtx_shdr, std::string frg_shdr) 
 {
 	std::vector<std::pair<GLenum, std::string>> shdr_files{
@@ -256,6 +290,14 @@ void GLApp::init_shdrpgms(std::string shdr_pgm_name, std::string vtx_shdr, std::
 	GLApp::shdrpgms[shdr_pgm_name] = shdr_pgm;
 }
 
+/**
+ * @brief Initialize the GLModel with the given model file.
+ *
+ * This function reads a mesh file, extracts vertex positions and triangle indices,
+ * and transfers the data to the GPU for rendering.
+ *
+ * @param model_file_name The name of the model file to be loaded.
+ */
 void GLApp::GLModel::init(std::string model_file_name)
 {
 	std::string mesh = "../meshes/" + model_file_name + ".msh";
@@ -335,6 +377,15 @@ void GLApp::GLModel::init(std::string model_file_name)
 	primitive_cnt = idx_vtx.size();		// number of primitives unused
 }
 
+/**
+ * @brief Initialize the 2D camera with the given window and object parameters.
+ *
+ * This function initializes the 2D camera by calculating various transformation matrices
+ * based on the provided window and object parameters.
+ *
+ * @param win The GLFW window object.
+ * @param ptr Pointer to the GLObject representing the camera's target.
+ */
 void GLApp::Camera2D::init(GLFWwindow* win, GLApp::GLObject* ptr) 
 {
 	pgo = ptr;
@@ -358,6 +409,15 @@ void GLApp::Camera2D::init(GLFWwindow* win, GLApp::GLObject* ptr)
 	world_to_ndc_xform = camwin_to_ndc_xform * view_xform;
 }
 
+/**
+ * @brief Update the 2D camera based on input flags and parameters.
+ *
+ * This function updates the 2D camera based on the input flags and parameters.
+ * It adjusts the camera orientation, position, zoom, and transformation matrices
+ * based on the flags and parameters set.
+ *
+ * @param win The GLFW window object.
+ */
 void GLApp::Camera2D::update(GLFWwindow*) {
 	left_turn_flag = GLHelper::keystateH;
 	right_turn_flag = GLHelper::keystateK;
@@ -437,31 +497,28 @@ void GLApp::Camera2D::update(GLFWwindow*) {
 	pgo->mdl_to_ndc_xform = world_to_ndc_xform * pgo->mdl_xform;
 }
 
+/**
+ * @brief Release any resources held by the GLModel.
+ *
+ * This function releases any resources held by the GLModel, such as buffers or allocated memory.
+ * It should be called when the GLModel is no longer needed to free up resources and prevent memory leaks.
+ * After calling this function, the GLModel should not be used anymore unless it is re-initialized.
+ */
 void GLApp::GLModel::release()
 {
 
 }
 
 /**
-
-@brief Initializes the GLObject.
-
-This function initializes the GLObject by setting various parameters such as the model reference,
-
-shader reference, position, scaling, rotation speed, and current orientation.
-
-The model reference is randomly chosen between 0 and 1.
-
-The shader reference is set to 0.
-
-The position is randomly set between -1 and 1 on both x and y axes.
-
-The scaling is randomly set between 0.05 and 0.15 on both x and y axes.
-
-The rotation speed is randomly set between -1 and 1.
-
-The current orientation is calculated by multiplying a random value between -1 and 1 with 360.
-*/
+ * @brief Initialize the GLObject with random parameters.
+ *
+ * This function initializes the GLObject by assigning random values to its parameters.
+ * It randomly chooses between two model data options, sets the shader reference to 0,
+ * and generates random values for position, scaling, rotation speed, and initial orientation.
+ * The position is set between -1 and 1 in both X and Y coordinates, scaling is randomly
+ * generated within a specified range, and the rotation speed and initial orientation
+ * are assigned random float values.
+ */
 void GLApp::GLObject::init()
 {
 	/*double const range_x = GLHelper::width;
@@ -491,19 +548,22 @@ void GLApp::GLObject::init()
 }
 
 /**
-
-@brief Draws the GLObject.
-
-This function performs the necessary steps to draw the GLObject on the screen.
-
-It installs the shader program, binds the object's vertex array object (VAO), and copies the object's
-
-transformation matrix to the vertex shader. Then, based on the specified raster mode, it renders the model
-
-using the appropriate OpenGL draw function (glDrawArrays). Finally, it cleans up by unbinding the VAO and
-
-unusing the shader program.
-*/
+ * @brief Draw the GLObject using the assigned shader program and transformation matrices.
+ *
+ * This function draws the GLObject by performing the following steps:
+ * 1. Binds the assigned shader program.
+ * 2. Binds the vertex array object (VAO) of the assigned model data.
+ * 3. Retrieves the uniform variable location for the "uModel_to_NDC" matrix in the shader program.
+ * 4. Sets the uniform variable value to the transformation matrix representing the model-to-NDC coordinate space.
+ * 5. Retrieves the uniform variable location for the "uColor" vector in the shader program.
+ * 6. Sets the uniform variable value to the color of the GLObject.
+ * 7. Draws the model using the specified primitive type and draw count.
+ * 8. Unbinds the VAO.
+ * 9. Unbinds the shader program.
+ *
+ * If the uniform variable locations are not found in the shader program,
+ * an error message is printed, and the program exits.
+ */
 void GLApp::GLObject::draw() const
 {	
 	shd_ref->second.Use();
@@ -540,21 +600,19 @@ void GLApp::GLObject::draw() const
 }
 
 /**
-
-@brief Updates the GLObject.
-
-This function updates the GLObject by modifying its orientation based on the provided delta time.
-
-It calculates the new angle displacement by adding the product of angle speed and delta time to the
-
-current angle displacement. Then, it calculates the translation matrix, rotation matrix, and scale matrix
-
-based on the object's position, angle displacement, and scaling values. Finally, it combines these matrices
-
-to calculate the model-to-NDC transformation matrix (mdl_to_ndc_xform).
-
-@param delta_time The time difference between the current frame and the previous frame.
-*/
+ * @brief Update the GLObject based on the elapsed time.
+ *
+ * This function updates the GLObject by performing the following steps:
+ * 1. Calculates the scale, translation, and rotation matrices based on the current parameters.
+ * 2. Updates the orientation.x value by adding the product of orientation.y and delta_time.
+ * 3. Converts the orientation.x value to radians.
+ * 4. Calculates the rotation matrix based on the converted orientation.x value.
+ * 5. Calculates the model transformation matrix by combining the scale, translation, and rotation matrices.
+ * 6. Calculates the model-to-NDC transformation matrix by multiplying the world-to-NDC transformation matrix
+ *    with the model transformation matrix.
+ *
+ * @param delta_time The elapsed time since the last update, in seconds.
+ */
 void GLApp::GLObject::update(GLdouble delta_time)
 {
 	glm::mat3 scale_mtx{ scaling.x,			0,	0,
