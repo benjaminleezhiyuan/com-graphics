@@ -4,8 +4,8 @@
 @date    10/11/2016
 
 @co-author	benjaminzhiyuan.lee@digipen.edu
-@date		26/05/2023
-@ammendent	added keystate for V,Z,H,K and U
+@date		05/05/2023
+@ammendent	added keystate for M,T and A
 
 This file contains the declaration of namespace Helper that encapsulates the
 functionality required to create an OpenGL context using GLFW; use GLEW
