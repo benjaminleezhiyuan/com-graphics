@@ -4,7 +4,7 @@
 @date    10/11/2016
 
 @co-author	benjaminzhiyuan.lee@digipen.edu
-@date		05/06/2023
+@date		26/05/2023
 
 This file implements functionality useful and necessary to build OpenGL
 applications including use of external APIs such as GLFW to create a
@@ -17,6 +17,7 @@ pointers to OpenGL implementations.
 ----------------------------------------------------------------------------- */
 #include <glhelper.h>
 #include <iostream>
+#define UNREFERENCED_PARAMETER(P) (P)  
 
 /*                                                   objects with file scope
 ----------------------------------------------------------------------------- */
@@ -27,7 +28,16 @@ GLdouble GLHelper::fps;
 GLdouble GLHelper::delta_time;
 std::string GLHelper::title;
 GLFWwindow* GLHelper::ptr_window;
-
+GLboolean GLHelper::keystateP = GL_FALSE;
+GLboolean GLHelper::keystateK = GL_FALSE;
+GLboolean GLHelper::keystateU = GL_FALSE;
+GLboolean GLHelper::keystateZ = GL_FALSE;
+GLboolean GLHelper::keystateV = GL_FALSE;
+GLboolean GLHelper::keystateH = GL_FALSE;
+GLboolean GLHelper::keystateM = GL_FALSE;
+GLboolean GLHelper::keystateT = GL_FALSE;
+GLboolean GLHelper::keystateA = GL_FALSE;
+GLboolean GLHelper::mousestateLeft = GL_FALSE;
 
 
 /*  _________________________________________________________________________ */
@@ -224,25 +234,49 @@ were held down
 This function is called when keyboard buttons are pressed.
 When the ESC key is pressed, the close flag of the window is set.
 */
-void GLHelper::key_cb(GLFWwindow *pwin, int key, int scancode, int action, int mod) {
-  if (GLFW_PRESS == action) {
-#ifdef _DEBUG
-    std::cout << "Key pressed" << std::endl;
-#endif
-  } else if (GLFW_REPEAT == action) {
-#ifdef _DEBUG
-    std::cout << "Key repeatedly pressed" << std::endl;
-#endif
-  } else if (GLFW_RELEASE == action) {
-#ifdef _DEBUG
-    std::cout << "Key released" << std::endl;
-#endif
-  }
+void GLHelper::key_cb(GLFWwindow* pwin, int key, int scancode, int
+    action, int mod) noexcept {
+    UNREFERENCED_PARAMETER(mod);
+    UNREFERENCED_PARAMETER(scancode);
+    // key state changes from released to pressed
+    if (GLFW_PRESS == action) 
+    {
+        if (GLFW_KEY_ESCAPE == key) 
+        {
+            glfwSetWindowShouldClose(pwin, GLFW_TRUE);
+        }
+        else if (key == GLFW_KEY_M) {
+            keystateM = GL_TRUE;
+        }
+        else if (key == GLFW_KEY_A) {
+            keystateA = GL_TRUE;
+        }
+        else if (key == GLFW_KEY_T) {
+            keystateT = GL_TRUE;
+        }
+    }
+    else if (GLFW_REPEAT == action) {
+        // key state was and is being pressed
+        //keystateP = GL_FALSE;
+    }
+    else if (GLFW_RELEASE == action) {
+        // key start changes from pressed to released
 
-  if (GLFW_KEY_ESCAPE == key && GLFW_PRESS == action) {
-    glfwSetWindowShouldClose(pwin, GLFW_TRUE);
-  }
+        //controls
+        if (key == GLFW_KEY_M) {
+            keystateM = GL_FALSE;
+        }
+        else if (key == GLFW_KEY_A) {
+            keystateA = GL_FALSE;
+        }
+
+        else if (key == GLFW_KEY_T) {
+            keystateT = GL_FALSE;
+        }
+
+    }
 }
+
 
 /*  _________________________________________________________________________*/
 /*! mousebutton_cb
@@ -266,9 +300,11 @@ were held down
 
 This function is called when mouse buttons are pressed.
 */
-void GLHelper::mousebutton_cb(GLFWwindow *pwin, int button, int action, int mod) {
+void GLHelper::mousebutton_cb(GLFWwindow *pwin, int button, int action, int mod) noexcept {
   switch (button) {
   case GLFW_MOUSE_BUTTON_LEFT:
+      UNREFERENCED_PARAMETER(pwin);
+      UNREFERENCED_PARAMETER(mod);
 #ifdef _DEBUG
     std::cout << "Left mouse button ";
 #endif
@@ -281,11 +317,13 @@ void GLHelper::mousebutton_cb(GLFWwindow *pwin, int button, int action, int mod)
   }
   switch (action) {
   case GLFW_PRESS:
+      mousestateLeft = GL_TRUE; //if leftmouse is pressed state = true;
 #ifdef _DEBUG
     std::cout << "pressed!!!" << std::endl;
 #endif
     break;
   case GLFW_RELEASE:
+      mousestateLeft = GL_FALSE; //if leftmouse is released state = false;
 #ifdef _DEBUG
     std::cout << "released!!!" << std::endl;
 #endif
@@ -310,7 +348,10 @@ new cursor y-coordinate, relative to the top edge of the client area
 This functions receives the cursor position, measured in screen coordinates but
 relative to the top-left corner of the window client area.
 */
-void GLHelper::mousepos_cb(GLFWwindow *pwin, double xpos, double ypos) {
+void GLHelper::mousepos_cb(GLFWwindow *pwin, double xpos, double ypos)noexcept {
+    UNREFERENCED_PARAMETER(xpos);
+    UNREFERENCED_PARAMETER(ypos);
+    UNREFERENCED_PARAMETER(pwin);
 #ifdef _DEBUG
   std::cout << "Mouse cursor position: (" << xpos << ", " << ypos << ")" << std::endl;
 #endif
@@ -334,7 +375,10 @@ This function is called when the user scrolls, whether with a mouse wheel or
 touchpad gesture. Although the function receives 2D scroll offsets, a simple
 mouse scroll wheel, being vertical, provides offsets only along the Y-axis.
 */
-void GLHelper::mousescroll_cb(GLFWwindow *pwin, double xoffset, double yoffset) {
+void GLHelper::mousescroll_cb(GLFWwindow *pwin, double xoffset, double yoffset)noexcept {
+    UNREFERENCED_PARAMETER(pwin);
+    UNREFERENCED_PARAMETER(xoffset);
+    UNREFERENCED_PARAMETER(yoffset);
 #ifdef _DEBUG
   std::cout << "Mouse scroll wheel offset: ("
     << xoffset << ", " << yoffset << ")" << std::endl;
@@ -355,7 +399,9 @@ Human-readable description of the code
 The error callback receives a human-readable description of the error and
 (when possible) its cause.
 */
-void GLHelper::error_cb(int error, char const* description) {
+void GLHelper::error_cb(int error, char const* description)noexcept {
+    UNREFERENCED_PARAMETER(description);
+    UNREFERENCED_PARAMETER(error);
 #ifdef _DEBUG
   std::cerr << "GLFW error: " << description << std::endl;
 #endif
@@ -378,7 +424,8 @@ Height in pixels of new window size
 This function is called when the window is resized - it receives the new size
 of the window in pixels.
 */
-void GLHelper::fbsize_cb(GLFWwindow *ptr_win, int nwidth, int nheight) {
+void GLHelper::fbsize_cb(GLFWwindow *ptr_win, int nwidth, int nheight)noexcept {
+    UNREFERENCED_PARAMETER(ptr_win);
 #ifdef _DEBUG
   std::cout << "fbsize_cb getting called!!!" << std::endl;
 #endif

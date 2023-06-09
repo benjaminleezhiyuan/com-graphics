@@ -4,7 +4,8 @@
 @date    10/11/2016
 
 @co-author	benjaminzhiyuan.lee@digipen.edu
-@date		05/06/2023
+@date		26/05/2023
+@ammendent	added keystate for V,Z,H,K and U
 
 This file contains the declaration of namespace Helper that encapsulates the
 functionality required to create an OpenGL context using GLFW; use GLEW
@@ -34,14 +35,27 @@ struct GLHelper
   static void cleanup();
 
   // callbacks ...
-  static void error_cb(int error, char const* description);
-  static void fbsize_cb(GLFWwindow *ptr_win, int width, int height);
+  static void error_cb(int error, char const* description) noexcept;
+  static void fbsize_cb(GLFWwindow *ptr_win, int width, int height)noexcept;
   // I/O callbacks ...
-  static void key_cb(GLFWwindow *pwin, int key, int scancode, int action, int mod);
-  static void mousebutton_cb(GLFWwindow *pwin, int button, int action, int mod);
-  static void mousescroll_cb(GLFWwindow *pwin, double xoffset, double yoffset);
-  static void mousepos_cb(GLFWwindow *pwin, double xpos, double ypos);
-
+// I/O callbacks ...
+  static void key_cb(GLFWwindow*, int key, int scancode,
+	  int action, int mod)noexcept;
+  static void mousebutton_cb(GLFWwindow*, int button,
+	  int action, int mod)noexcept;
+  static void mousescroll_cb(GLFWwindow*,
+	  double xoffset, double yoffset)noexcept;
+  static void mousepos_cb(GLFWwindow*, double xpos, double ypos)noexcept;
+  static GLboolean keystateP;
+  static GLboolean keystateV;
+  static GLboolean keystateZ;
+  static GLboolean keystateH;
+  static GLboolean keystateK;
+  static GLboolean keystateU;
+  static GLboolean keystateM;
+  static GLboolean keystateT;
+  static GLboolean keystateA;
+  static GLboolean mousestateLeft;
   static void update_time(double fpsCalcInt = 1.0);
 
   static GLint width, height;
