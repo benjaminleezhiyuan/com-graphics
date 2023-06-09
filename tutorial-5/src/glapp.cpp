@@ -40,6 +40,16 @@ enum tasks
 };
 static tasks task = zero;
 
+/**
+
+\brief Sets up a texture object from an image file.
+
+This function reads an image file and creates a texture object in OpenGL with the image data.
+
+\param pathname The path to the image file.
+
+\return The handle to the created texture object, or 0 if there was an error.
+*/
 GLuint setup_texobj(std::string pathname) {
 	GLuint width = 256;
 	GLuint height = 256;
@@ -77,6 +87,16 @@ GLuint setup_texobj(std::string pathname) {
 	return texture_obj;
 }
 
+/**
+
+\brief Sets up a texture object from an image file.
+
+This function reads an image file and creates a texture object in OpenGL with the image data.
+
+\param pathname The path to the image file.
+
+\return The handle to the created texture object, or 0 if there was an error.
+*/
 void GLApp::init() {
 	// Part 1: clear colorbuffer with RGBA value in glClearColor ...
 	glClearColor(1.f, 0.f, 0.f, 1.f);
@@ -88,6 +108,13 @@ void GLApp::init() {
 	mdl.setup_shdrpgm();
 }
 
+/**
+
+\brief Updates the state of the OpenGL application.
+This function updates the state of the application based on user input and performs
+the necessary OpenGL operations accordingly. It toggles modulation and alpha blending states,
+cycles through tasks, and enables or disables blending based on the alpha blending state.
+*/
 void GLApp::update() 
 {
 	if (GLHelper::keystateM) {
@@ -138,6 +165,14 @@ void GLApp::update()
 	}
 }
  
+/**
+
+\brief Renders the OpenGL scene and updates the window title bar.
+
+This function clears the back buffer, renders a rectangular model from normalized device coordinates (NDC) to the viewport,
+
+and updates the window title bar with information about the current task, alpha blending state, and modulation state.
+*/
 void GLApp::draw() {
 	// clear back buffer as before
 	glClear(GL_COLOR_BUFFER_BIT);
@@ -175,10 +210,24 @@ void GLApp::draw() {
 	glfwSetWindowTitle(GLHelper::ptr_window, title.c_str());
 }
 
+/**
+
+\brief Cleans up resources and performs necessary cleanup tasks.
+This function is currently empty and does not perform any specific cleanup tasks.
+It can be extended in the future to release any allocated resources or perform cleanup operations.
+*/
 void GLApp::cleanup() {
   // empty for now
 }
 
+/**
+
+\brief Sets up the vertex array object (VAO) for the OpenGL model.
+This function defines the vertex structure, creates a vertex buffer object (VBO) to store the vertex data,
+encapsulates the VBO and VBO handle into a VAO, specifies vertex attribute formats and bindings,
+defines indices of the vertices, creates an element buffer object (EBO) to store the indices,
+and performs necessary cleanup.
+*/
 void GLApp::GLModel::setup_vao() 
 {
 	// Define the vertex structure
@@ -243,6 +292,13 @@ void GLApp::GLModel::setup_vao()
 	glBindVertexArray(0);
 }
 
+/**
+
+\brief Sets up the shader program for the OpenGL model.
+This function specifies the shader files to be used for the vertex and fragment shaders,
+compiles, links, and validates the shader program, and checks for any compilation or linking errors.
+If there are any errors, the function displays the error message and terminates the program.
+*/
 void GLApp::GLModel::setup_shdrpgm() {
 	std::vector<std::pair<GLenum, std::string>> shdr_files;
 	shdr_files.emplace_back(std::make_pair(
@@ -259,6 +315,19 @@ void GLApp::GLModel::setup_shdrpgm() {
 	}
 }
 
+/**
+
+\brief Applies an easing function to calculate the current tile size for animation.
+This function calculates the current tile size based on an easing function applied to the elapsed time
+and returns the interpolated value. The animation parameters include the total duration of the animation,
+the minimum tile size, and the maximum tile size. The function applies an ease-in/ease-out function to
+the elapsed time to smoothly transition the tile size. If the animation reaches the end, the elapsed time
+is reset and the current size is adjusted to ensure a smooth transition.
+
+\param delta_time The time elapsed since the last frame.
+
+\return The current tile size based on the animation parameters and elapsed time.
+*/
 float ease(float delta_time) {
 	// Calculate the animation parameters
 	static const float animation_duration = 30.0f;  // Total duration of the animation in Firsts
@@ -297,6 +366,15 @@ float ease(float delta_time) {
 	return current_size;
 }
 
+/**
+
+\brief Draws the GLModel.
+This function draws the GLModel using the current state and shader program.
+It binds the texture object to texture image unit 0, sets up the shader program,
+specifies the VAO's state to be used, and sets various uniforms in the shader program.
+The current task determines the rendering behavior and the values of certain uniforms.
+After the rendering is completed, the VAO and texture object are unbound and the shader program is un-used.
+*/
 void GLApp::GLModel::draw() {
 	// suppose texture object is to use texture image unit 0
 	glBindTextureUnit(0, mdl.texture_obj);
