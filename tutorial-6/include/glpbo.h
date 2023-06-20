@@ -87,14 +87,23 @@ struct GLPbo
     sure to encapsulate the name in scope GLPbo!!!
     */
   {
-    struct {
+    struct 
+    {
       GLubyte r, g, b, a; // a, b, g, r
-    };
+    }rgba;
     GLubyte val[4]; // treat <r,g,b,a> as array of 8-bit unsigned values
     GLuint raw;     // treat <r,g,b,a> as 32-bit unsigned value
 
     Color(GLubyte re = 0, GLubyte gr = 0, GLubyte bl = 0, GLubyte al = 255) :
-      r(re), g(gr), b(bl), a(al) {}
+        rgba{ re, gr, bl, al }
+    {
+        val[0] = rgba.r;
+        val[1] = rgba.g;
+        val[2] = rgba.b;
+        val[3] = rgba.a;
+
+        raw = 0;
+    }
   };
   
 };

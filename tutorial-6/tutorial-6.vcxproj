@@ -135,6 +135,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\glhelper.cpp" />
+    <ClCompile Include="src\glpbo.cpp" />
     <ClCompile Include="src\glslshader.cpp" />
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>
