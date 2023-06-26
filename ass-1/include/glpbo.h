@@ -105,7 +105,31 @@ struct GLPbo
         raw = 0;
     }
   };
-  
+
+  // Data structure to store vertex position and triangle index arrays
+// returned by DPML::parse_obj_mesh()
+  struct Model {
+      // The vertex position array pm contains vertex position coordinates
+      // returned by DPML::parse_obj_mesh(). These coordinates are similar to
+      // the data sitting in a vertex buffer and must therefore be invariant.
+      // For this submission, position coordinates in pm are assumed to be in
+      // NDC coordinate system. Every frame, these position coordinates
+      // must be transformed by viewport transformation matrix to window
+      // (or viewport or device or screen) coordinates pd.
+      std::vector<glm::vec3> pm; // invariant
+      // DPML::parse_obj_mesh() will return per-vertex normal coordinates
+      // that you must map to color coordinates in range [0, 1]
+      std::vector<glm::vec3> nml; // will contain per-vertex normal
+      // coordinates which must then be
+      // converted by you to RGB values
+      std::vector<glm::vec2> tex; // not used in this submission
+      std::vector<unsigned short> tri; // triangle indices
+      // window coordinates in array pd are obtained after NDC coordinates in
+      // array pm are transformed by rotation transform followed by
+      // viewport transformation matrix
+      std::vector<glm::vec3> pd;
+  };
+
 };
 
 #endif /* GLPBO_H */

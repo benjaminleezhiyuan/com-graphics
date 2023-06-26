@@ -20,6 +20,7 @@ to OpenGL implementations.
 #include <array>
 #include <glhelper.h>
 #include <iomanip> // setprecision
+#include <dpml.h>
 
 
 /*                                                   objects with file scope
@@ -149,6 +150,24 @@ void GLPbo::draw_fullwindow_quad()
  */
 void GLPbo::init(GLsizei w, GLsizei h) 
 {
+	std::string filename = "../meshes/cube.obj";
+	bool load_nml_coord_flag = true;
+	bool load_tex_coord_flag = false; // Set to true if you want to load texture coordinates
+	bool model_centered_flag = true;
+
+	// Create an instance of the Model struct
+	GLPbo::Model cube;
+
+	// Call the parse_obj_mesh() function
+	bool success = DPML::parse_obj_mesh(filename, cube.pm, cube.nml, cube.tex, cube.tri,
+		load_nml_coord_flag, load_tex_coord_flag, model_centered_flag);
+
+	if (success)
+	{
+		std::cout << "obj parsed successfully";
+	}
+	else std::cout << "obj failed to parse";
+
 	width = w;
 	height = h;
 	pixel_cnt = width * height;
