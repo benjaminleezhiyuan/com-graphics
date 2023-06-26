@@ -19,6 +19,7 @@ See the assignment specs for details ...
 ----------------------------------------------------------------------------- */
 #include <GL/glew.h> // for access to OpenGL API declarations 
 #include <glslshader.h> // GLSLShader class definition
+#include <glm/gtc/matrix_transform.hpp>
 
 /*  _________________________________________________________________________ */
 struct GLPbo
@@ -129,6 +130,39 @@ struct GLPbo
       // viewport transformation matrix
       std::vector<glm::vec3> pd;
   };
+
+  static void viewport_xform(Model& model) {
+      model.pd.clear();
+      model.pd.reserve(model.pm.size());
+
+      float width = static_cast<float>(GLHelper::width);
+      float height = static_cast<float>(GLHelper::height);
+
+      // Apply rotation transform about z-axis
+      float angle = 45.0f; // Example rotation angle in degrees
+      float radians = glm::radians(angle);
+      glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f), radians, glm::vec3(0.0f, 0.0f, 1.0f));
+
+      // Apply viewport transform
+      glm::mat4 viewportMatrix = glm::mat4(
+          width / 2, 0.0f, 0.0f, width / 2,
+          0.0f, height / 2, 0.0f, height / 2,
+          0.0f, 0.0f, 1.0f, 0.0f,
+          0.0f, 0.0f, 0.0f, 1.0f
+      );
+
+      for (const glm::vec3& ndcCoord : model.pm) {
+          // Apply rotation transform
+          glm::vec4 rotatedCoord = rotationMatrix * glm::vec4(ndcCoord, 1.0f);
+
+          // Apply viewport transform
+          glm::vec4 windowCoord = viewportMatrix * rotatedCoord;
+          windowCoord.z = 0.0f; // Set z-coordinate to 0
+
+          // Store the transformed window coordinate
+          model.pd.push_back(glm::vec3(windowCoord));
+      }
+  }
 
 };
 

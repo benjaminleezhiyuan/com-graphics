@@ -41,7 +41,6 @@ GLPbo::Color GLPbo::clear_clr;
 static const float color_transition_time = 2.0f;    //color transit per seconds
 static float elapsed_time = 0.f;                    //application time passed
 
-
 /**
  * @brief Emulates the PBO.
  */
@@ -109,7 +108,6 @@ void GLPbo::emulate()
 
 	clear_color_buffer();
 }
-
 
 /**
  * @brief Draws a full-window quad using the current texture and shader program.
