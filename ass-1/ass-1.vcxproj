@@ -129,6 +129,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\lib\dpml\include\dpml.h" />
     <ClInclude Include="include\glhelper.h" />
     <ClInclude Include="include\glpbo.h" />
     <ClInclude Include="include\glslshader.h" />

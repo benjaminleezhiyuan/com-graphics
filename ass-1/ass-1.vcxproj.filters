@@ -24,6 +24,9 @@
     <ClInclude Include="include\glslshader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\lib\dpml\include\dpml.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\glhelper.cpp">

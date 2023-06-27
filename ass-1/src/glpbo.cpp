@@ -38,76 +38,40 @@ GLuint GLPbo::texid = 0;
 GLSLShader GLPbo::shdr_pgm;
 GLPbo::Color GLPbo::clear_clr;
 
+// Create an instance of the Model struct
+GLPbo::Model cube;
+
 static const float color_transition_time = 2.0f;    //color transit per seconds
 static float elapsed_time = 0.f;                    //application time passed
 
 /**
  * @brief Emulates the PBO.
  */
-void GLPbo::emulate() 
+void GLPbo::emulate()
 {
-
+	clear_color_buffer();
 	ptr_to_pbo = reinterpret_cast<GLPbo::Color*>(glMapNamedBuffer(pboid, GL_WRITE_ONLY));
 
-		
-	GLPbo::clear_color_buffer();
-
+	// Render a line using Bresenham's algorithm
+	GLPbo::Color lineColor(0, 0, 0, 255);
+	render_linebresenham(1500,200,200,1000, lineColor);
 
 	glUnmapNamedBuffer(pboid);
 
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboid);
-	// copy image data from client memory to GPU texture buffer memory
-	glTextureSubImage2D(texid, 0, 0, 0, width, height,
-		GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-
+	// Copy image data from client memory to GPU texture buffer memory
+	glTextureSubImage2D(texid, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-
-	static GLubyte start_color[4] = { 255, 255, 255, 255 };
-	static GLubyte end_color[4] = { 0, 0, 0, 255 };
-	static GLubyte current_color[4] = { 0, 0, 0, 255 };
-
-	// Time passed for color transition counter
-	elapsed_time += static_cast<float>(GLHelper::delta_time);
-
-	// Transition color for every elapsed_time greater than color_transition_time
-	if (elapsed_time > color_transition_time) 
-	{
-		elapsed_time = 0.f;
-
-		// Set the new start color to the previous end color
-		for (int i = 0; i < 4; ++i) 
-		{
-			start_color[i] = end_color[i];
-		}
-
-		// Generate a new random end color
-		for (int i = 0; i < 3; ++i) 
-		{
-			end_color[i] = static_cast<GLubyte>(std::rand() % 256);
-		}
-		end_color[3] = 255;
-	}
-
-	// Interpolate between start color and end color
-	for (int i = 0; i < 4; ++i) 
-	{
-		current_color[i] = start_color[i] + static_cast<GLubyte>((elapsed_time / color_transition_time) * (end_color[i] - start_color[i]));
-	}
-
 
 	std::stringstream fps;
 	fps << std::fixed << std::setprecision(2) << GLHelper::fps;
 	std::string fps_string = fps.str();
 
 	// Print to window title bar
-	std::string title = "Tutorial 6 | Benjamin Lee | PBO size: " + std::to_string(GLHelper::width) + " x " + std::to_string(GLHelper::height) + " | FPS: " + fps_string;
+	std::string title = "Assignment 1 | Benjamin Lee | PBO size: " + std::to_string(GLHelper::width) + " x " + std::to_string(GLHelper::height) + " | FPS: " + fps_string;
 	glfwSetWindowTitle(GLHelper::ptr_window, title.c_str());
-
-	
-	set_clear_color(current_color[0], current_color[1], current_color[2], current_color[3]);
-
-	clear_color_buffer();
 }
+
 
 /**
  * @brief Draws a full-window quad using the current texture and shader program.
@@ -130,13 +94,11 @@ void GLPbo::draw_fullwindow_quad()
    // such primitives exist.
    // the graphics driver knows where to get the indices because the VAO
    // containing this state information has been made current ...
-	glDrawElements(GL_TRIANGLE_STRIP, static_cast<GLsizei>(elem_cnt), GL_UNSIGNED_SHORT, nullptr);
+	glDrawElements(GL_TRIANGLE_STRIP, static_cast<GLsizei>(elem_cnt), GL_UNSIGNED_SHORT, nullptr); 
 
 	// Unbind the VAO and the shader program
 	glBindVertexArray(0);
 	glUseProgram(0);
-
-	
 
 	// Unbind the texture object
 	glBindTexture(GL_TEXTURE_2D, 0);
@@ -152,9 +114,6 @@ void GLPbo::init(GLsizei w, GLsizei h)
 	bool load_nml_coord_flag = true;
 	bool load_tex_coord_flag = false; // Set to true if you want to load texture coordinates
 	bool model_centered_flag = true;
-
-	// Create an instance of the Model struct
-	GLPbo::Model cube;
 
 	// Call the parse_obj_mesh() function
 	bool success = DPML::parse_obj_mesh(filename, cube.pm, cube.nml, cube.tex, cube.tri,
@@ -172,8 +131,8 @@ void GLPbo::init(GLsizei w, GLsizei h)
 	byte_cnt = pixel_cnt * sizeof(Color);
 
 	// Set the PBO fill color
-	set_clear_color(Color(255, 255, 255, 255));
-
+	set_clear_color(255, 255, 255, 255);
+	clear_color_buffer();
 	// Create a texture object
 	glCreateTextures(GL_TEXTURE_2D, 1, &texid);
 	glTextureStorage2D(texid, 1, GL_RGBA8, width, height);
@@ -343,3 +302,76 @@ void GLPbo::clear_color_buffer() {
 		std::fill(ptr_to_pbo, ptr_to_pbo + pixel_cnt, clear_clr);
 	}
 }
+
+void GLPbo::viewport_xform(Model& model)
+{
+	model.pd.clear();
+	model.pd.reserve(model.pm.size());
+
+	float width = static_cast<float>(GLHelper::width);
+	float height = static_cast<float>(GLHelper::height);
+
+	// Apply rotation transform about z-axis
+	float angle = 45.0f; // Example rotation angle in degrees
+	float radians = glm::radians(angle);
+	glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f), radians, glm::vec3(0.0f, 0.0f, 1.0f));
+
+	// Apply viewport transform
+	glm::mat4 viewportMatrix = glm::mat4(
+		width / 2, 0.0f, 0.0f, width / 2,
+		0.0f, height / 2, 0.0f, height / 2,
+		0.0f, 0.0f, 1.0f, 0.0f,
+		0.0f, 0.0f, 0.0f, 1.0f
+	);
+
+	for (const glm::vec3& ndcCoord : model.pm) {
+		// Apply rotation transform
+		glm::vec4 rotatedCoord = rotationMatrix * glm::vec4(ndcCoord, 1.0f);
+
+		// Apply viewport transform
+		glm::vec4 windowCoord = viewportMatrix * rotatedCoord;
+		windowCoord.z = 0.0f; // Set z-coordinate to 0
+
+		// Store the transformed window coordinate
+		model.pd.push_back(glm::vec3(windowCoord));
+	}
+}
+
+void GLPbo::set_pixel(int x, int y, GLPbo::Color draw_clr)
+{
+	// Perform scissoring with the entire window as the scissor rectangle
+	int minX = 0;
+	int minY = 0;
+	int maxX = GLHelper::width - 1;
+	int maxY = GLHelper::height - 1;
+
+	// Clamp the pixel coordinates within the scissor rectangle
+	x = std::clamp(x, minX, maxX);
+	y = std::clamp(y, minY, maxY);
+
+	// Calculate the index of the pixel in the PBO buffer
+	int index = y * GLHelper::width + x;
+
+	// Write the RGBA color to the specified pixel in the PBO buffer
+	if (ptr_to_pbo) {
+		ptr_to_pbo[index] = draw_clr;
+	}
+}
+
+void GLPbo::render_linebresenham(GLint x1, GLint y1, GLint x2, GLint y2, GLPbo::Color draw_clr)
+{
+	GLint dx = x2 - x1, dy = y2 - y1;
+	GLint xstep = (dx < 0) ? -1 : 1;
+	GLint ystep = (dy < 0) ? -1 : 1;
+	dx = (dx < 0) ? -dx : dx;
+	dy = (dy < 0) ? -dy : dy;
+	GLint d = 2 * dy - dx, dmin = 2 * dy, dmaj = 2 * dy - 2 * dx;
+	set_pixel(x1, y1, draw_clr);
+	while (--dx) {
+		y1 += (d > 0) ? ystep : 0;
+		d += (d > 0) ? dmaj : dmin;
+		x1 += xstep;
+		set_pixel(x1, y1, draw_clr);
+	}
+}
+

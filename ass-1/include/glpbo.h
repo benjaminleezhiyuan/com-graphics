@@ -20,6 +20,7 @@ See the assignment specs for details ...
 #include <GL/glew.h> // for access to OpenGL API declarations 
 #include <glslshader.h> // GLSLShader class definition
 #include <glm/gtc/matrix_transform.hpp>
+#include <glhelper.h>
 
 /*  _________________________________________________________________________ */
 struct GLPbo
@@ -51,7 +52,8 @@ struct GLPbo
   // ---------------static data members are declared here ----------------
   
   // Storage requirements common to emulator, PBO and texture object
-  static GLsizei width, height; // dimensions of buffers
+  static GLsizei width, height; // dimensions of 
+  
   // rather than computing these values many times, compute once in
   // GLPbo::init() and then forget ...
   static GLsizei pixel_cnt, byte_cnt; // how many pixels and bytes
@@ -131,38 +133,45 @@ struct GLPbo
       std::vector<glm::vec3> pd;
   };
 
-  static void viewport_xform(Model& model) {
-      model.pd.clear();
-      model.pd.reserve(model.pm.size());
+     static void viewport_xform(Model& model);
+     static void set_pixel(int x, int y, GLPbo::Color draw_clr);
 
-      float width = static_cast<float>(GLHelper::width);
-      float height = static_cast<float>(GLHelper::height);
+    // set all pixels with same color draw_clr on line segment starting
+    // at point P1(x1, y1) and ending at point P2(x2, y2)
+    // Note: points are in window coordinates
+        static void render_linebresenham(GLint x1, GLint y1,
+      GLint x2, GLint y2, GLPbo::Color draw_clr);
 
-      // Apply rotation transform about z-axis
-      float angle = 45.0f; // Example rotation angle in degrees
-      float radians = glm::radians(angle);
-      glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f), radians, glm::vec3(0.0f, 0.0f, 1.0f));
+    // Implements a flat shaded triangle rasterizer using edge equations
+    // and top-left tie-breaking rule.
+    // Whether fragment (x, y) is rasterized or not is based on the results of
+    // point sampling the fragment at its center (x+0.5, y+0.5).
+    // Top left tie-breaking rule must be implemented.
+    // Parameters p0, p1, and p2 represent vertices of triangle whose x- and y
+    // values are specified in window coordinates.
+    // Front-facing triangles are assumed to have counterclockwise winding.
+    // Back-facing triangles must be culled.
+    // The clr parameter is specified by the caller with randomly generated
+    // color coordinates in range [0, 1].
+    // The function returns false if the triangle is back-facing; otherwise
+    // the function returns true.
+        static bool render_triangle(glm::vec3 const& p0, glm::vec3 const& p1,
+            glm::vec3 const& p2, glm::vec3 clr);
 
-      // Apply viewport transform
-      glm::mat4 viewportMatrix = glm::mat4(
-          width / 2, 0.0f, 0.0f, width / 2,
-          0.0f, height / 2, 0.0f, height / 2,
-          0.0f, 0.0f, 1.0f, 0.0f,
-          0.0f, 0.0f, 0.0f, 1.0f
-      );
-
-      for (const glm::vec3& ndcCoord : model.pm) {
-          // Apply rotation transform
-          glm::vec4 rotatedCoord = rotationMatrix * glm::vec4(ndcCoord, 1.0f);
-
-          // Apply viewport transform
-          glm::vec4 windowCoord = viewportMatrix * rotatedCoord;
-          windowCoord.z = 0.0f; // Set z-coordinate to 0
-
-          // Store the transformed window coordinate
-          model.pd.push_back(glm::vec3(windowCoord));
-      }
-  }
+    // Implements a smooth shaded triangle rasterizer using edge equations,
+    // top-left tie-breaking rule, and Barycentric interpolation.
+    // Parameters p0, p1, and p2 represent vertices of triangle whose x- and y-
+    // values are specified in window coordinates.
+    // Front-facing triangles are assumed to have counterclockwise winding.
+    // Back-facing triangles must be culled.
+    // Parameters c0, c1, and c2 represent RGB color coordinates for vertices
+    // p0, p1, and p2, respectively. Color coordinates are specified in
+    // range [0, 1].
+    // The function returns false if the triangle is back-facing; otherwise
+    // the function returns true.
+        static bool render_triangle(glm::vec3 const& p0, glm::vec3 const& p1,
+            glm::vec3 const& p2, glm::vec3 const& c0,
+            glm::vec3 const& c1, glm::vec3 const& c2);
 
 };
 
