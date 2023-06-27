@@ -49,8 +49,8 @@ static float elapsed_time = 0.f;                    //application time passed
  */
 void GLPbo::emulate()
 {
-	clear_color_buffer();
 	ptr_to_pbo = reinterpret_cast<GLPbo::Color*>(glMapNamedBuffer(pboid, GL_WRITE_ONLY));
+	clear_color_buffer();
 
 	// Render a line using Bresenham's algorithm
 	GLPbo::Color lineColor(0, 0, 0, 255);
@@ -122,6 +122,8 @@ void GLPbo::init(GLsizei w, GLsizei h)
 	if (success)
 	{
 		std::cout << "obj parsed successfully";
+		viewport_xform(cube);
+		cube.pd;
 	}
 	else std::cout << "obj failed to parse";
 
@@ -339,15 +341,8 @@ void GLPbo::viewport_xform(Model& model)
 
 void GLPbo::set_pixel(int x, int y, GLPbo::Color draw_clr)
 {
-	// Perform scissoring with the entire window as the scissor rectangle
-	int minX = 0;
-	int minY = 0;
-	int maxX = GLHelper::width - 1;
-	int maxY = GLHelper::height - 1;
-
-	// Clamp the pixel coordinates within the scissor rectangle
-	x = std::clamp(x, minX, maxX);
-	y = std::clamp(y, minY, maxY);
+	//clamp to window
+	glScissor(0, 0, GLHelper::width, GLHelper::height);
 
 	// Calculate the index of the pixel in the PBO buffer
 	int index = y * GLHelper::width + x;
