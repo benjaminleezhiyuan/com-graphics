@@ -4,8 +4,6 @@
 @co-author	benjaminzhiyuan.lee@digipen.edu
 @date		19/06/2023
 
-Added emulate, draw_fullwindow_quad, init, setup_quad_vao, setup_shdrpgm, cleanup, set_clear_color overload, clear_color_buffer functions implementations.
-
 This file implements functionality useful and necessary to build OpenGL
 applications including use of external APIs such as GLFW to create a
 window and start up an OpenGL context and to extract function pointers
@@ -13,360 +11,720 @@ to OpenGL implementations.
 
 *//*__________________________________________________________________________*/
 
-/*                                                                   includes
------------------------------------------------------------------------------ */
-#include "glpbo.h"
-#include <algorithm> // for std::fill
-#include <array>
-#include <glhelper.h>
-#include <iomanip> // setprecision
-#include <dpml.h>
+#include <glpbo.h>
 
-
-/*                                                   objects with file scope
------------------------------------------------------------------------------ */
-// Initialize static members
-GLsizei GLPbo::width = 0;
-GLsizei GLPbo::height = 0;
-GLsizei GLPbo::pixel_cnt = 0;
-GLsizei GLPbo::byte_cnt = 0;
-GLPbo::Color* GLPbo::ptr_to_pbo = nullptr;
-GLuint GLPbo::vaoid = 0;
-GLuint GLPbo::elem_cnt = 0;
-GLuint GLPbo::pboid = 0;
-GLuint GLPbo::texid = 0;
+// Definitions for all static data members.
+GLsizei GLPbo::width;
+GLsizei GLPbo::height;
+GLsizei GLPbo::pixel_cnt;
+GLsizei GLPbo::byte_cnt;
+GLPbo::Color* GLPbo::ptr_to_pbo{ nullptr };
+GLuint GLPbo::vaoid;
+GLuint GLPbo::elem_cnt;
+GLuint GLPbo::pboid;
+GLuint GLPbo::texid;
 GLSLShader GLPbo::shdr_pgm;
 GLPbo::Color GLPbo::clear_clr;
 
-// Create an instance of the Model struct
-GLPbo::Model cube;
+GLPbo::Model GLPbo::mdl;
+std::map<std::string, GLPbo::Model> models_map;
+std::map<std::string, GLPbo::Model>::iterator current_model_it;
 
-static const float color_transition_time = 2.0f;    //color transit per seconds
-static float elapsed_time = 0.f;                    //application time passed
+bool previous_keystateM = false;
+bool isRotating = false;
+float  angle{};
+float radians{};
+bool  first_time_cull = true;
+std::string mode{};
+GLubyte r{};
+GLubyte g{};
+GLubyte b{};
 
-/**
- * @brief Emulates the PBO.
- */
-void GLPbo::emulate()
-{
-	ptr_to_pbo = reinterpret_cast<GLPbo::Color*>(glMapNamedBuffer(pboid, GL_WRITE_ONLY));
-	clear_color_buffer();
+int cull_counter{};
+int vtx_counter{};
+int tri_counter{};
+float timesSpeed = 1.0f;
 
-	// Render a line using Bresenham's algorithm
-	GLPbo::Color lineColor(0, 0, 0, 255);
-	render_linebresenham(1500,200,200,1000, lineColor);
+float normalizeDegrees(float degrees);
 
-	glUnmapNamedBuffer(pboid);
+/*!***********************************************************************
+\brief Emulates the graphics pipeline by generating images with changing colors.
 
-	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboid);
-	// Copy image data from client memory to GPU texture buffer memory
-	glTextureSubImage2D(texid, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+\param None
 
-	std::stringstream fps;
-	fps << std::fixed << std::setprecision(2) << GLHelper::fps;
-	std::string fps_string = fps.str();
+\details This function emulates the graphics pipeline by generating images with changing colors. It uses the current time to calculate the color values based on sine and cosine functions.
+The resulting color values are mapped to the range [0, 255] and assigned to the clear_clr variable. The set_clear_color function is called to update the clear color of the PBO.
+The PBO is then mapped to the application side using glMapNamedBuffer, and the clear_color_buffer function is called to fill the PBO with the new color.
+Finally, the PBO is unmapepd and the texture image is updated using glTextureSubImage2D.
 
-	// Print to window title bar
-	std::string title = "Assignment 1 | Benjamin Lee | PBO size: " + std::to_string(GLHelper::width) + " x " + std::to_string(GLHelper::height) + " | FPS: " + fps_string;
-	glfwSetWindowTitle(GLHelper::ptr_window, title.c_str());
-}
+\note This function assumes that the necessary variables and objects (timesSpeed, clear_clr, pboid, ptr_to_pbo, texid, width, and height) have been properly initialized.
+*************************************************************************/
+void GLPbo::emulate() {
 
+    /* clear_clr.rgba.r = static_cast<GLubyte>(r);
+     clear_clr.rgba.g = static_cast<GLubyte>(g);
+     clear_clr.rgba.b = static_cast<GLubyte>(b);*/
 
-/**
- * @brief Draws a full-window quad using the current texture and shader program.
- */
-void GLPbo::draw_fullwindow_quad() 
-{
-	// Bind the texture
-	glBindTexture(GL_TEXTURE_2D, texid);
+     // Create a rnadom number generator
+    std::default_random_engine dre;
+    dre.seed(30);
+    std::uniform_real_distribution<float> urdf(.0, 1.0);
 
-	// Use the shader program
-	shdr_pgm.Use();
-
-	glUniform1i(glGetUniformLocation(shdr_pgm.GetHandle(), "tex"), 0);  // Set the texture unit to 0
-	glActiveTexture(GL_TEXTURE0);  // Activate texture unit 0
-	glBindTexture(GL_TEXTURE_2D, texid);
-
-	// Bind the VAO and draw the quad
-	glBindVertexArray(vaoid);
-	// here, we're saying what primitive is to be rendered and how many
-   // such primitives exist.
-   // the graphics driver knows where to get the indices because the VAO
-   // containing this state information has been made current ...
-	glDrawElements(GL_TRIANGLE_STRIP, static_cast<GLsizei>(elem_cnt), GL_UNSIGNED_SHORT, nullptr); 
-
-	// Unbind the VAO and the shader program
-	glBindVertexArray(0);
-	glUseProgram(0);
-
-	// Unbind the texture object
-	glBindTexture(GL_TEXTURE_2D, 0);
-}
-/**
- * @brief Initializes the GLPbo.
- * @param w The width of the PBO.
- * @param h The height of the PBO.
- */
-void GLPbo::init(GLsizei w, GLsizei h) 
-{
-	std::string filename = "../meshes/cube.obj";
-	bool load_nml_coord_flag = true;
-	bool load_tex_coord_flag = false; // Set to true if you want to load texture coordinates
-	bool model_centered_flag = true;
-
-	// Call the parse_obj_mesh() function
-	bool success = DPML::parse_obj_mesh(filename, cube.pm, cube.nml, cube.tex, cube.tri,
-		load_nml_coord_flag, load_tex_coord_flag, model_centered_flag);
-
-	if (success)
-	{
-		std::cout << "obj parsed successfully";
-		viewport_xform(cube);
-		cube.pd;
-	}
-	else std::cout << "obj failed to parse";
-
-	width = w;
-	height = h;
-	pixel_cnt = width * height;
-	byte_cnt = pixel_cnt * sizeof(Color);
-
-	// Set the PBO fill color
-	set_clear_color(255, 255, 255, 255);
-	clear_color_buffer();
-	// Create a texture object
-	glCreateTextures(GL_TEXTURE_2D, 1, &texid);
-	glTextureStorage2D(texid, 1, GL_RGBA8, width, height);
-
-	// Create a PBO
-	glCreateBuffers(1, &pboid);
-	glNamedBufferStorage(pboid, byte_cnt, nullptr, GL_DYNAMIC_STORAGE_BIT | GL_MAP_WRITE_BIT);
-
-	// Setup the VAO for the full-window quad
-	setup_quad_vao();
-
-	// Setup the shader program
-	setup_shdrpgm();
-}
-
-/**
- * @brief Sets up the vertex array object (VAO) for the full-window quad.
- */
-void GLPbo::setup_quad_vao() 
-{
-	// Define the vertex structure
-	struct Vertex 
-	{
-		glm::vec2 position;
-		glm::vec3 color;
-		glm::vec2 texture;
-	};
-
-	// Define the vertices using the array of structure format
-	std::array<Vertex, 4> vertices = 
-	{
-	 Vertex{ glm::vec2(1.0f, -1.0f), glm::vec3(1.f, 0.f, 0.f),glm::vec2(1.f, 0.f)},
-	 Vertex{ glm::vec2(1.0f, 1.0f), glm::vec3(0.f, 1.f, 0.f),glm::vec2(1.f, 1.f)},
-	 Vertex{ glm::vec2(-1.0f, 1.0f), glm::vec3(0.f, 0.f, 1.f),glm::vec2(0.f, 1.f)},
-	 Vertex{ glm::vec2(-1.0f, -1.0f), glm::vec3(0.5f, 0.2f, 1.f),glm::vec2(0.f, 0.f)}
-	};
-
-
-	// Create a single vertex buffer object (VBO) to store the vertex data
-	GLuint vbo_hdl;
-	glCreateBuffers(1, &vbo_hdl);
-	glNamedBufferStorage(vbo_hdl, sizeof(Vertex) * vertices.size(), vertices.data(), GL_DYNAMIC_STORAGE_BIT);
-
-	// Encapsulate information about the contents of VBO and VBO handle into a VAO
-	glCreateVertexArrays(1, &vaoid);
-
-	// Specify the vertex position attribute
-	glEnableVertexArrayAttrib(vaoid, 0);
-	glVertexArrayAttribFormat(vaoid, 0, 2, GL_FLOAT, GL_FALSE, offsetof(Vertex, position));
-	glVertexArrayVertexBuffer(vaoid, 0, vbo_hdl, offsetof(Vertex, position), sizeof(Vertex));
-	glVertexArrayAttribBinding(vaoid, 0, 0);
-
-	// Specify the vertex color attribute
-	glEnableVertexArrayAttrib(vaoid, 1);
-	glVertexArrayAttribFormat(vaoid, 1, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, color));
-	glVertexArrayVertexBuffer(vaoid, 1, vbo_hdl, offsetof(Vertex, color), sizeof(Vertex));
-	glVertexArrayAttribBinding(vaoid, 1, 0);
-
-	// Specify the texture attribute
-	glEnableVertexArrayAttrib(vaoid, 2);
-	glVertexArrayAttribFormat(vaoid, 2, 4, GL_FLOAT, GL_FALSE, offsetof(Vertex, texture));
-	glVertexArrayVertexBuffer(vaoid, 2, vbo_hdl, offsetof(Vertex, texture), sizeof(Vertex));
-	glVertexArrayAttribBinding(vaoid, 2, 0);
-
-	// Define the indices of the vertices
-	std::array<GLushort, 6> indices = {
-	 0,1,2,2,3,0
-	};
-	elem_cnt = indices.size();
-
-	// Create an element buffer object (EBO) to store the indices
-	GLuint ebo_hdl;
-	glCreateBuffers(1, &ebo_hdl);
-	glNamedBufferStorage(ebo_hdl, sizeof(GLushort)* indices.size(), indices.data(), GL_DYNAMIC_STORAGE_BIT);
-
-	glVertexArrayElementBuffer(vaoid, ebo_hdl);
-
-	// Cleanup
-	glBindVertexArray(0);
-}
-/**
- * @brief Sets up the shader program for rendering.
- */
-void GLPbo::setup_shdrpgm() {
-	// Define the vertex shader source code
-	std::string vertexShaderSource = R"(
-        #version 450 core
-        layout (location=0) in vec2 VertexPosition;
-        layout (location=1) in vec3 VertexColor;
-        layout (location=0) out vec3 vColor;
-		layout (location=2) in vec2 TexCoord;
-		layout (location=1) out vec2 vTexCoord;  // Add this line to declare the output variable
-
-        void main() {
-            gl_Position = vec4(VertexPosition, 0.0, 1.0);
-            vColor = VertexColor;
-			vTexCoord = TexCoord;  // Pass the texture coordinates as an output
+    if (GLHelper::keystateM)
+    {
+        // The 'M' key has just been released.
+        ++current_model_it;
+        if (current_model_it == models_map.end())
+        {
+            current_model_it = models_map.begin();
         }
-    )";
-	// Define the fragment shader source code
-	std::string fragmentShaderSource = R"(
-    #version 450 core
-    layout (location=0) in vec3 vInterpColor;
-    layout(location=1) in vec2 vTexCoord;
-    layout (location=0) out vec4 fFragColor;
-    uniform sampler2D tex;  // Add this line to declare the texture sampler
-    void main () {
-        fFragColor = texture(tex, vTexCoord);  // Sample the texture with the texture coordinates
+        current_model_it->second.isRotating = false;
+        first_time_cull = true;
+        cull_counter = 0;
+        GLHelper::keystateM = GL_FALSE;
     }
-	)";
 
-	//start linking
-	shdr_pgm.CompileShaderFromString(GL_VERTEX_SHADER, vertexShaderSource);
-	shdr_pgm.CompileShaderFromString(GL_FRAGMENT_SHADER, fragmentShaderSource);
+    GLPbo::Model& current_mdl = current_model_it->second;
 
-	if (GL_FALSE == shdr_pgm.Link()) {
-		std::cout << "Unable to compile/link/validate shader programs" << "\n";
-		std::cout << shdr_pgm.GetLog() << std::endl;
-		std::exit(EXIT_FAILURE);
-	}
+    if (GLHelper::keystateW)
+    {
+        current_mdl.Tasking = static_cast<GLPbo::Model::task>(static_cast<int>(current_mdl.Tasking) + 1);
+        if (static_cast<int>(current_mdl.Tasking) == 4)
+        {
+            current_mdl.Tasking = GLPbo::Model::task::wireframe;
+        }
+        GLHelper::keystateW = GL_FALSE;
+    }
 
+    if (GLHelper::keystateR)
+    {
+        current_model_it->second.isRotating = !current_model_it->second.isRotating;
+        GLHelper::keystateR = GL_FALSE;
+    }
+
+    if (current_model_it->second.isRotating)
+    {
+        //current_model_it->second.angle += 1;
+        current_model_it->second.angle = normalizeDegrees(current_model_it->second.angle + 1);
+    }
+
+    //set_clear_color(clear_clr);
+    // Mapping pboid to client address ptr_to_pbo
+    ptr_to_pbo = static_cast<GLPbo::Color*>(glMapNamedBuffer(pboid, GL_WRITE_ONLY));
+    clear_color_buffer();
+    viewport_xform(current_mdl);
+
+    for (size_t i = 0; i < current_mdl.tri.size(); i += 3)
+    {
+        // Get the indices of the three vertices that form the triangle.
+        int idx1 = current_mdl.tri[i];
+        int idx2 = current_mdl.tri[i + 1];
+        int idx3 = current_mdl.tri[i + 2];
+
+        // Calculate two edges of the triangle.
+        glm::vec3 edge1 = current_mdl.pd[idx2] - current_mdl.pd[idx1];
+        glm::vec3 edge2 = current_mdl.pd[idx3] - current_mdl.pd[idx1];
+
+        // Calculate the normal of the triangle.
+        glm::vec3 normal = glm::cross(edge1, edge2);
+        // Check if the triangle is back-facing.
+        if (normal.z >= 0) {
+            r = static_cast<GLubyte>(urdf(dre) * 255);
+            b = static_cast<GLubyte>(urdf(dre) * 255);
+            g = static_cast<GLubyte>(urdf(dre) * 255);
+            switch (current_mdl.Tasking)
+            {
+            case GLPbo::Model::task::wireframe:
+                // The triangle is front-facing, so draw it.
+                render_linebresenham(static_cast<int>(current_mdl.pd[idx1].x), static_cast<int>(current_mdl.pd[idx1].y), static_cast<int>(current_mdl.pd[idx2].x), static_cast<int>(current_mdl.pd[idx2].y), { 0, 0, 0 ,255 });
+                render_linebresenham(static_cast<int>(current_mdl.pd[idx2].x), static_cast<int>(current_mdl.pd[idx2].y), static_cast<int>(current_mdl.pd[idx3].x), static_cast<int>(current_mdl.pd[idx3].y), { 0, 0, 0 ,255 });
+                render_linebresenham(static_cast<int>(current_mdl.pd[idx3].x), static_cast<int>(current_mdl.pd[idx3].y), static_cast<int>(current_mdl.pd[idx1].x), static_cast<int>(current_mdl.pd[idx1].y), { 0, 0, 0 ,255 });
+                mode = "Wireframe";
+                break;
+            case GLPbo::Model::task::wireframe_color:
+                render_linebresenham(static_cast<int>(current_mdl.pd[idx1].x), static_cast<int>(current_mdl.pd[idx1].y), static_cast<int>(current_mdl.pd[idx2].x), static_cast<int>(current_mdl.pd[idx2].y), { static_cast<GLubyte>(r * current_mdl.pd[idx1].x)    ,static_cast<GLubyte>(g * current_mdl.pd[idx1].x),static_cast<GLubyte>(b * current_mdl.pd[idx1].y),255 });
+                render_linebresenham(static_cast<int>(current_mdl.pd[idx2].x), static_cast<int>(current_mdl.pd[idx2].y), static_cast<int>(current_mdl.pd[idx3].x), static_cast<int>(current_mdl.pd[idx3].y), { static_cast<GLubyte>(r * current_mdl.pd[idx2].y),static_cast<GLubyte>(g * current_mdl.pd[idx2].x),static_cast<GLubyte>(b * current_mdl.pd[idx2].y),255 });
+                render_linebresenham(static_cast<int>(current_mdl.pd[idx3].x), static_cast<int>(current_mdl.pd[idx3].y), static_cast<int>(current_mdl.pd[idx1].x), static_cast<int>(current_mdl.pd[idx1].y), { static_cast<GLubyte>(r * current_mdl.pd[idx2].y)   ,static_cast<GLubyte>(g * current_mdl.pd[idx2].x),static_cast<GLubyte>(b * current_mdl.pd[idx3].y),255 });
+                mode = "Wireframe Color";
+                break;
+            case GLPbo::Model::task::faceted:
+                render_triangle(current_mdl.pd[idx1], current_mdl.pd[idx2], current_mdl.pd[idx3], { r,g,b });
+                mode = "Faceted";
+                break;
+            case GLPbo::Model::task::shaded:
+                render_triangle(current_mdl.pd[idx1], current_mdl.pd[idx2], current_mdl.pd[idx3], current_mdl.nml[idx1] * 255.f, current_mdl.nml[idx2] * 255.f, current_mdl.nml[idx3] * 255.f);
+                mode = "Shaded";
+                break;
+            }
+        }
+        else if (first_time_cull)
+        {
+            cull_counter++;
+        }
+    }
+    first_time_cull = false;
+    // BIND A NAMED BUFFER OBJECT
+    // GL_PIXEL_UNPACK_BUFFER - "target" - purpose is for Texture data source
+    // pboid - "buffer" - name of the sourced buffer object
+    glUnmapNamedBuffer(pboid);
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboid);
+    // Associate the PBO with the texture image - texid read (unpack) their data from the buffer object into texid image store 
+    glTextureSubImage2D(texid, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    // Unbind the PBO
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 }
+/*!***********************************************************************
+\brief Draws a full-window quad with the current PBO texture.
 
-/**
- * @brief Cleans up and deletes the PBO, texture, and VAO.
- */
+\param None
+
+\details This function binds the PBO texture to texture unit 0 using glBindTextureUnit. It then uses the shader program specified by shdr_pgm by calling shdr_pgm.Use().
+The texture location is obtained using glGetUniformLocation and stored in texture_location. The texture unit is set using glUniform1i with the texture location and value 0.
+The vertex array object (VAO) specified by vaoid is bound using glBindVertexArray. The quad is drawn using glDrawArrays with the parameters GL_TRIANGLE_STRIP, 0, and elem_cnt.
+Finally, the shader program is un-used with shdr_pgm.UnUse().
+
+\note This function assumes that the necessary variables and objects (texid, shdr_pgm, vaoid, and elem_cnt) have been properly initialized.
+
+*************************************************************************/
+void GLPbo::draw_fullwindow_quad() {
+    std::stringstream sstr;
+    // Bind texture unit
+    glBindTextureUnit(0, texid);
+
+    // Use program
+    shdr_pgm.Use();
+
+    // Get texture location for fragment shader use
+    GLuint texture_location = glGetUniformLocation(shdr_pgm.GetHandle(), "uTex2d");
+    glUniform1i(texture_location, 0);
+
+    // Bind the VAO
+    glBindVertexArray(vaoid);
+
+    // draw
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, elem_cnt);
+    shdr_pgm.UnUse();
+    std::string modelName = current_model_it->first;
+
+    sstr << std::fixed << std::setprecision(2) << "A1 | Bjorn Pokin Chinnaphongse | Model: " << modelName << " | Mode: " << mode << " | Vtx: " << current_model_it->second.pm.size() << " | Tri: " << current_model_it->second.tri.size() / 3 << " | Culled: " << cull_counter << " | FPS: " << GLHelper::fps;
+    glfwSetWindowTitle(GLHelper::ptr_window, sstr.str().c_str());
+}
+/*!***********************************************************************
+\brief Initializes the GLPbo object with the specified width and height.
+
+\param w The width of the GLPbo object.
+\param h The height of the GLPbo object.
+
+\details This function initializes the GLPbo object by setting the width and height variables to the provided values.
+It calculates the total number of pixels (pixel_cnt) and bytes (byte_cnt) based on the width and height. The clear color is set to white (255, 255, 255).
+The texture object is created using glCreateTextures, with the target set to GL_TEXTURE_2D, and the storage is allocated using glTextureStorage2D with the format GL_RGBA8, and the width and height of the GLPbo object.
+The pixel buffer object (PBO) is created using glCreateBuffers, and the storage is allocated using glNamedBufferStorage.
+The storage size is determined by the byte count, and the storage flags include GL_DYNAMIC_STORAGE_BIT and GL_MAP_WRITE_BIT.
+The quad vertex array object (VAO) and the shader program are set up using the setup_quad_vao and setup_shdrpgm functions, respectively.
+
+\note This function assumes that the necessary variables and objects (texid, pboid, setup_quad_vao, and setup_shdrpgm) have been properly defined and implemented.
+
+*************************************************************************/
+void GLPbo::init(GLsizei w, GLsizei h) {
+    width = w;
+    height = h;
+
+    pixel_cnt = w * h;
+    byte_cnt = pixel_cnt * 4;
+
+    set_clear_color(255, 255, 255);
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &texid);
+
+    glTextureStorage2D(texid, 1, GL_RGBA8, width, height);
+
+    glCreateBuffers(1, &pboid);
+
+    glNamedBufferStorage(pboid,
+        byte_cnt,
+        nullptr,
+        GL_DYNAMIC_STORAGE_BIT | GL_MAP_WRITE_BIT);
+
+    std::ifstream ifs("../scenes/ass-1.scn");
+    //std::istringstream iss;
+    std::string name;
+    std::vector<std::string> objectName;
+    if (ifs.is_open()) {
+        while (std::getline(ifs, name))
+        {
+            name[0] = std::toupper(name[0]);
+            objectName.push_back(name);
+        }
+    }
+
+    for (const auto& x : objectName)
+    {
+        GLPbo::Model mdl;
+        GLPbo::mdl.pm.clear();
+        GLPbo::mdl.nml.clear();
+        GLPbo::mdl.tex.clear();
+        GLPbo::mdl.tri.clear();
+        if (DPML::parse_obj_mesh("../meshes/" + x + ".obj", mdl.pm, mdl.nml, mdl.tex, mdl.tri, true, true, true))
+        {
+            for (auto& normal : mdl.nml)
+            {
+                normal.x = (normal.x + 1) / 2;
+                normal.y = (normal.y + 1) / 2;
+                normal.z = (normal.z + 1) / 2;
+            }
+            models_map[x] = mdl;
+        }
+
+    }
+
+    current_model_it = models_map.begin();
+
+    viewport_xform(mdl);
+    setup_quad_vao();
+    setup_shdrpgm();
+}
+/*!***********************************************************************
+\brief Sets up the vertex array object (VAO) for rendering a full-window quad.
+
+\details This function creates a VBO to store the position and texture coordinate data of the quad. It uses the provided pos_vtx and tex_coord vectors to define the vertex attributes.
+A VBO is created using glCreateBuffers, and the storage is allocated using glNamedBufferStorage. The size of the storage is calculated based on the size of the pos_vtx and tex_coord vectors.
+The position data is uploaded to the VBO using glNamedBufferSubData with the offset set to 0 and the size based on the size of the pos_vtx vector.
+The texture coordinate data is uploaded to the VBO using glNamedBufferSubData with the offset set to the size of the pos_vtx data and the size based on the size of the tex_coord vector.
+A VAO is created using glCreateVertexArrays.
+The position attribute is enabled using glEnableVertexArrayAttrib, and its vertex buffer is set using glVertexArrayVertexBuffer.
+The attribute format is defined using glVertexArrayAttribFormat, and the attribute binding is set using glVertexArrayAttribBinding.
+The texture coordinate attribute is enabled using glEnableVertexArrayAttrib, and its vertex buffer is set using glVertexArrayVertexBuffer.
+The attribute format is defined using glVertexArrayAttribFormat, and the attribute binding is set using glVertexArrayAttribBinding.
+The element count is set to the size of the pos_vtx vector.
+The VBO is deleted using glDeleteBuffers, and the VAO is unbound using glBindVertexArray.
+
+\note This function assumes that the necessary variables and objects (vaoid) have been properly defined and implemented.
+
+*************************************************************************/
+void GLPbo::setup_quad_vao() {
+    std::vector<glm::vec2> pos_vtx{
+        glm::vec2{-1.f, -1.f}, glm::vec2{-1.f,1.f},
+        glm::vec2{1.f,-1.f}, glm::vec2{1.f,1.f}
+    };
+    std::vector<glm::vec2> tex_coord{
+        glm::vec2{0.0f, 0.0f}, glm::vec2{0.0f, 1.f},
+        glm::vec2{1.0f, 0.0f}, glm::vec2{1.0f, 1.0f}
+    };
+
+    // Creating VBO
+    GLuint vbo_hdl;
+    glCreateBuffers(1, &vbo_hdl);
+    glNamedBufferStorage(vbo_hdl, pos_vtx.size() * sizeof(glm::vec2) + tex_coord.size() * sizeof(glm::vec2), nullptr, GL_DYNAMIC_STORAGE_BIT);
+
+    // VBO - Position
+    glNamedBufferSubData(vbo_hdl, 0, pos_vtx.size() * sizeof(glm::vec2), pos_vtx.data());
+    // VBO - Texture Coordinates
+    glNamedBufferSubData(vbo_hdl, pos_vtx.size() * sizeof(glm::vec2), tex_coord.size() * sizeof(glm::vec2), tex_coord.data());
+
+    // Creating VAO
+    glCreateVertexArrays(1, &vaoid);
+
+    // VAO - Position
+    glEnableVertexArrayAttrib(vaoid, 0);
+    glVertexArrayVertexBuffer(vaoid, 0, vbo_hdl, 0, sizeof(glm::vec2));
+    glVertexArrayAttribFormat(vaoid, 0, 2, GL_FLOAT, GL_FALSE, 0);
+    glVertexArrayAttribBinding(vaoid, 0, 0);
+    // VAO - Texture Coordinates
+    glEnableVertexArrayAttrib(vaoid, 1);
+    glVertexArrayVertexBuffer(vaoid, 1, vbo_hdl, sizeof(glm::vec2) * pos_vtx.size(), sizeof(glm::vec2));
+    glVertexArrayAttribFormat(vaoid, 1, 2, GL_FLOAT, GL_FALSE, 0);
+    glVertexArrayAttribBinding(vaoid, 1, 1);
+
+    // Element Count
+    elem_cnt = pos_vtx.size();
+    glDeleteBuffers(1, &vbo_hdl);
+    glBindVertexArray(0);
+}
+/*!***********************************************************************
+\brief Sets up the shader program for rendering.
+
+\details This function creates the vertex and fragment shaders using the provided shader source code.
+The vertex shader takes in the vertex position and texture coordinate attributes and outputs the texture coordinate as a varying variable.
+The fragment shader takes in the texture coordinate and outputs the final fragment color based on the texture lookup.
+The vertex shader source code is defined as a string vert_Shader and contains the necessary shader code for the vertex stage.
+The fragment shader source code is defined as a string frag_Shader and contains the necessary shader code for the fragment stage.
+The shader source code strings are stored in a vector of pairs, shdr_sources, where each pair contains the shader type (e.g., GL_VERTEX_SHADER) and the corresponding source code.
+The shader program object (shdr_pgm) is iterated over the shdr_sources vector, and each shader source is compiled using shdr_pgm.CompileShaderFromString. If compilation fails, the shader program log is printed.
+After compiling all shaders, the shader program is linked using shdr_pgm.Link() and validated using shdr_pgm.Validate(). If either linking or validation fails, an error message is printed.
+
+\note This function assumes that the necessary variables and objects (shdr_pgm) have been properly defined and implemented.
+
+*************************************************************************/
+void GLPbo::setup_shdrpgm() {
+    const std::string vert_Shader{
+      "#version 450 core\n"
+      "layout (location = 0) in vec2 aVertexPosition;\n"
+      "layout (location = 1) in vec2 aTextureCoord;\n"
+      "layout (location = 1) out vec2 vTextureCoord;\n"
+      "void main(void){\n"
+      "gl_Position = vec4(aVertexPosition, 0.0, 1.0);\n"
+      "vTextureCoord = aTextureCoord;\n"
+      "}"
+    };
+
+    const std::string frag_Shader{
+        "#version 450 core\n"
+        "layout (location = 1) in vec2 vTextureCoord;\n"
+        "layout (location = 0) out vec4 fFragColor;\n"
+        "uniform sampler2D uTex2d;\n"
+        "void main() {\n"
+        //"vec4 textureColor = texture(uTex2d, vTextureCoord);\n"
+        "fFragColor = texture(uTex2d, vTextureCoord);\n"
+        "}"
+    };
+
+    shdr_pgm.CompileShaderFromString(GL_VERTEX_SHADER, vert_Shader);
+    shdr_pgm.CompileShaderFromString(GL_FRAGMENT_SHADER, frag_Shader);
+
+    if (!shdr_pgm.Link() || !shdr_pgm.Validate()) {
+        std::cout << "Shaders is not linked and/or not validated!" << std::endl;
+        std::cout << shdr_pgm.GetLog() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    //shdr_pgm.PrintActiveAttribs();
+    //shdr_pgm.PrintActiveUniforms();
+}
+/*!***********************************************************************
+\brief Cleans up the allocated resources.
+
+\details This function deletes the vertex array object (vaoid), pixel buffer object (pboid), and texture object (texid) using the corresponding OpenGL delete functions: glDeleteVertexArrays, glDeleteBuffers, and glDeleteTextures, respectively.
+
+\note This function assumes that the necessary variables (vaoid, pboid, texid) have been properly defined and implemented.
+
+*************************************************************************/
 void GLPbo::cleanup() {
-	glInvalidateBufferData(vaoid);
-	glInvalidateBufferData(texid);
-	glInvalidateBufferData(pboid);
-	// Delete the PBO
-	glDeleteBuffers(1, &pboid);
+    glInvalidateBufferData(texid);
+    glDeleteTextures(1, &texid);
 
-	// Delete the texture
-	glDeleteTextures(1, &texid);
+    glInvalidateBufferData(pboid);
+    glDeleteBuffers(1, &pboid);
 
-	// Delete the VAO
-	glDeleteVertexArrays(1, &vaoid);
+    glInvalidateBufferData(vaoid);
+    glDeleteBuffers(1, &vaoid);
 }
 
-/**
- * @brief Sets the clear color for the PBO.
- * @param color The color to set.
- */
-void GLPbo::set_clear_color(GLPbo::Color color) {
-	clear_clr = color;
+/*!***********************************************************************
+\brief Sets the clear color of the GLPbo.
+
+\param clr The color to set as the clear color.
+
+\details This function sets the clear color of the GLPbo by assigning the provided clr to the clear_clr member variable.
+
+\note This function assumes that the clear_clr member variable has been properly defined and implemented.
+
+*************************************************************************/
+void GLPbo::set_clear_color(GLPbo::Color clr) {
+    clear_clr = clr;
 }
-/**
- * @brief Sets the clear color for the PBO.
- * @param r The red component of the color.
- * @param g The green component of the color.
- * @param b The blue component of the color.
- * @param a The alpha component of the color.
- */
+/*!***********************************************************************
+\brief Sets the clear color of the GLPbo.
+
+\param r The red component of the clear color.
+\param g The green component of the clear color.
+\param b The blue component of the clear color.
+\param a The alpha component of the clear color.
+
+\details This function sets the clear color of the GLPbo by assigning the provided r, g, b, and a values to the corresponding components of the clear_clr member variable.
+
+\note This function assumes that the clear_clr member variable has been properly defined and implemented.
+
+*************************************************************************/
 void GLPbo::set_clear_color(GLubyte r, GLubyte g, GLubyte b, GLubyte a) {
-	clear_clr.rgba.r = r;
-	clear_clr.rgba.g = g;
-	clear_clr.rgba.b = b;
-	clear_clr.rgba.a = a;
+    clear_clr.rgba.r = r;
+    clear_clr.rgba.g = g;
+    clear_clr.rgba.b = b;
+    clear_clr.rgba.a = a;
 }
+/*!***********************************************************************
+\brief Clears the color buffer of the GLPbo.
 
-/**
- * @brief Clears the color buffer of the PBO with the current clear color.
- */
+\details This function fills the color buffer of the GLPbo with the clear color (clear_clr) using the std::fill algorithm.
+
+\note This function assumes that ptr_to_pbo and pixel_cnt have been properly defined and implemented, and that clear_clr represents the desired clear color.
+
+*************************************************************************/
 void GLPbo::clear_color_buffer() {
-	if (ptr_to_pbo) {
-		std::fill(ptr_to_pbo, ptr_to_pbo + pixel_cnt, clear_clr);
-	}
+    // FPS: 510
+    std::fill(ptr_to_pbo, ptr_to_pbo + pixel_cnt, clear_clr);
 }
 
-void GLPbo::viewport_xform(Model& model)
+
+void GLPbo::viewport_xform(Model& mdl) {
+
+    mdl.pd.clear();
+    radians = glm::radians(mdl.angle);
+    glm::mat3 m_rotation{ cos(radians),  sin(radians),      0,
+                         -sin(radians),  cos(radians),      0,
+                          0               ,	          	    0,		 1 };
+    glm::mat4 view_port{
+     GLHelper::width / 2, 0                   , 0, 0,
+     0                  , GLHelper::height / 2, 0, 0,
+     0                  , 0                   , 1, 0,
+     GLHelper::width / 2, GLHelper::height / 2, 0, 1
+    };
+
+    for (size_t i = 0; i < mdl.pm.size(); i++)
+    {
+        // Apply the rotation
+        glm::vec3 rotated = m_rotation * mdl.pm[i];
+
+        // Convert the rotated vec3 to a vec4
+        glm::vec4 rotated4(rotated, 1.0f);
+
+        // Apply the viewport transformation
+        glm::vec4 transformed = view_port * rotated4;
+        transformed.z = 0.0f;
+
+        mdl.pd.push_back(glm::vec3(transformed));
+    }
+}
+
+void GLPbo::set_pixel(int x, int y, Color clr)
 {
-	model.pd.clear();
-	model.pd.reserve(model.pm.size());
+    if (x < 0 || x >= GLPbo::width || y < 0 || y >= GLPbo::height)
+    {
+        return;
+    }
+    else {
+        int position = (GLPbo::width * y) + x;
+        ptr_to_pbo[position] = clr;
+    }
 
-	float width = static_cast<float>(GLHelper::width);
-	float height = static_cast<float>(GLHelper::height);
+}
+void GLPbo::render_linebresenham(GLint x0, GLint y0,
+    GLint x1, GLint y1, GLPbo::Color draw_clr) {
 
-	// Apply rotation transform about z-axis
-	float angle = 45.0f; // Example rotation angle in degrees
-	float radians = glm::radians(angle);
-	glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f), radians, glm::vec3(0.0f, 0.0f, 1.0f));
+    int dx = x1 - x0, dy = y1 - y0, xNext{}, yNext{};
+    // Calculating for x coordinate
+    if (dx < 0) {
+        dx = -dx;
+        xNext = -1;
+    }
+    else {
+        dx = dx;
+        xNext = 1;
+    }
+    // Calculating for y coordinate
+    if (dy < 0) {
+        dy = -dy;
+        yNext = -1;
+    }
+    else {
+        dy = dy;
+        yNext = 1;
+    }
 
-	// Apply viewport transform
-	glm::mat4 viewportMatrix = glm::mat4(
-		width / 2, 0.0f, 0.0f, width / 2,
-		0.0f, height / 2, 0.0f, height / 2,
-		0.0f, 0.0f, 1.0f, 0.0f,
-		0.0f, 0.0f, 0.0f, 1.0f
-	);
+    if (abs(dy) >= abs(dx)) {
+        int d = 2 * dx - dy, dSame = 2 * dx, dNext = 2 * dx - 2 * dy;
+        int x = x0, y = y0;
 
-	for (const glm::vec3& ndcCoord : model.pm) {
-		// Apply rotation transform
-		glm::vec4 rotatedCoord = rotationMatrix * glm::vec4(ndcCoord, 1.0f);
+        //std::cout << "Drawing point at (" << x1 << "," << y1 << "), decision parameter = " << d << "\n";
+        set_pixel(x, y, draw_clr);
+        while (--dy > 0) {
+            x += (d > 0) ? xNext : 0;
+            d += (d > 0) ? dNext : dSame;
+            y += yNext;
+            //std::cout << "Drawing point at (" << x1 << "," << y1 << "), decision parameter = " << d << "\n";
+            set_pixel(x, y, draw_clr);
+        }
+    }
+    else {
+        int d = 2 * dy - dx, dSame = 2 * dy, dNext = 2 * dy - 2 * dx;
+        int x = x0, y = y0;
 
-		// Apply viewport transform
-		glm::vec4 windowCoord = viewportMatrix * rotatedCoord;
-		windowCoord.z = 0.0f; // Set z-coordinate to 0
+        //std::cout << "Drawing point at (" << x1 << "," << y1 << "), decision parameter = " << d << "\n";
+        set_pixel(x, y, draw_clr);
 
-		// Store the transformed window coordinate
-		model.pd.push_back(glm::vec3(windowCoord));
-	}
+        while (--dx > 0) {
+            y += (d > 0) ? yNext : 0;
+            d += (d > 0) ? dNext : dSame;
+            x += xNext;
+            //std::cout << "Drawing point at (" << x1 << "," << y1 << "), decision parameter = " << d << "\n";
+            set_pixel(x, y, draw_clr);
+        }
+    }
 }
 
-void GLPbo::set_pixel(int x, int y, GLPbo::Color draw_clr)
-{
-	//clamp to window
-	glScissor(0, 0, GLHelper::width, GLHelper::height);
+float normalizeDegrees(float degrees) {
+    if (degrees >= 0) {
+        degrees = static_cast<float>(fmod(degrees, 360));
+    }
+    else {
+        degrees = static_cast<float>(fmod(degrees, -360));
+    }
+    return degrees;
+}
+struct EdgeEqn {
+    float a{};
+    float b{};
+    float c{};
 
-	// Calculate the index of the pixel in the PBO buffer
-	int index = y * GLHelper::width + x;
+    bool topLeft{};
+};
+void computeEdgeEqn(glm::vec3 const& p0, glm::vec3 const& p1, EdgeEqn& E) {
 
-	// Write the RGBA color to the specified pixel in the PBO buffer
-	if (ptr_to_pbo) {
-		ptr_to_pbo[index] = draw_clr;
-	}
+    E.a = p0.y - p1.y;
+    E.b = p1.x - p0.x;
+    E.c = p0.x * p1.y - p1.x * p0.y;
+
+    // Check for Left edge         // Check for Top Edge
+    E.topLeft = (E.a != 0.0) ? (E.a > 0.0 ? true : false) : (E.b < 0.0 ? true : false);
+
 }
 
-void GLPbo::render_linebresenham(GLint x1, GLint y1, GLint x2, GLint y2, GLPbo::Color draw_clr)
-{
-	GLint dx = x2 - x1, dy = y2 - y1;
-	GLint xstep = (dx < 0) ? -1 : 1;
-	GLint ystep = (dy < 0) ? -1 : 1;
-	dx = (dx < 0) ? -dx : dx;
-	dy = (dy < 0) ? -dy : dy;
-	GLint d = 2 * dy - dx, dmin = 2 * dy, dmaj = 2 * dy - 2 * dx;
-	set_pixel(x1, y1, draw_clr);
-	while (--dx) {
-		y1 += (d > 0) ? ystep : 0;
-		d += (d > 0) ? dmaj : dmin;
-		x1 += xstep;
-		set_pixel(x1, y1, draw_clr);
-	}
+bool PointInEdgeTopLeftOptimized(float const& eval, glm::vec2 p, bool& topLeft) {
+    // if eval is more than 0 means its on the interior of the line.
+    // also if, eval == 0 (meaning on the edge line itself) and if the line pass the TopLeft tie breaker, -
+    // it is considered in the interior as well and thus should be considered in the interior
+    return (eval > 0 || (eval == 0 && topLeft == true)) ? true : false;
 }
+
+bool PointInTriangleOptimized(float const& eval0, float const& eval1, float const& eval2, glm::vec2 p, bool& topLeft0, bool& topLeft1, bool& topLeft2) {
+    if (PointInEdgeTopLeftOptimized(eval0, p, topLeft0) && PointInEdgeTopLeftOptimized(eval1, p, topLeft1) && PointInEdgeTopLeftOptimized(eval2, p, topLeft2)) {
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
+float calculateEdgeEqn_TopLeft(EdgeEqn& E, glm::vec3 random_point) {
+    // this is eval of the EdgeEqn
+    return (E.a * random_point.x + E.b * random_point.y + E.c);
+}
+bool GLPbo::render_triangle(glm::vec3 const& p0, glm::vec3 const& p1, glm::vec3 const& p2, GLPbo::Color clr) {
+    EdgeEqn e0, e1, e2;
+
+    // Edge equation of the 3 lines
+    computeEdgeEqn(p1, p2, e0);
+    computeEdgeEqn(p2, p0, e1);
+    computeEdgeEqn(p0, p1, e2);
+
+    // Bounding box of the triangle
+    GLfloat minX = floor(std::min({ p0.x, p1.x, p2.x }));
+    GLfloat maxX = ceil(std::max({ p0.x, p1.x, p2.x }));
+    GLfloat minY = floor(std::min({ p0.y, p1.y, p2.y }));
+    GLfloat maxY = ceil(std::max({ p0.y, p1.y, p2.y }));
+
+    float eVal0 = calculateEdgeEqn_TopLeft(e0, { minX + 0.5f, minY + 0.5f, 0 });
+    float eVal1 = calculateEdgeEqn_TopLeft(e1, { minX + 0.5f, minY + 0.5f, 0 });
+    float eVal2 = calculateEdgeEqn_TopLeft(e2, { minX + 0.5f, minY + 0.5f, 0 });
+
+    float e0a = e0.a, e1a = e1.a, e2a = e2.a;
+    float e0b = e0.b, e1b = e1.b, e2b = e2.b;
+    int intMaxX = static_cast<int>(maxX);
+    int intMaxY = static_cast<int>(maxY);
+    int intMinX = static_cast<int>(minX);
+    int intMinY = static_cast<int>(minY);
+
+    for (int y = intMinY; y < intMaxY; ++y)
+    {
+        float HEVal0 = eVal0;
+        float HEVal1 = eVal1;
+        float HEVal2 = eVal2;
+
+        for (int x = intMinX; x < intMaxX; ++x)
+        {
+            if (PointInTriangleOptimized(HEVal0, HEVal1, HEVal2, { x + 0.5, y + 0.5 }, e0.topLeft, e1.topLeft, e2.topLeft))
+            {
+                set_pixel(x, y, clr);
+            }
+            // plus 'a' is increment it horizontally aka increment x-axis
+            HEVal0 += e0a;
+            HEVal1 += e1a;
+            HEVal2 += e2a;
+        }
+        // plus 'b' is increment it vertically aka increment y-axis
+        eVal0 += e0b;
+        eVal1 += e1b;
+        eVal2 += e2b;
+    }
+
+    return true;
+}
+
+bool GLPbo::render_triangle(glm::vec3 const& p0, glm::vec3 const& p1, glm::vec3 const& p2, glm::vec3 const& c0, glm::vec3 const& c1, glm::vec3 const& c2) {
+
+    EdgeEqn e0, e1, e2;
+
+    // E1dge equation of the 3 lines0
+    computeEdgeEqn(p1, p2, e0);
+    computeEdgeEqn(p2, p0, e1);
+    computeEdgeEqn(p0, p1, e2);
+
+    float area_full_triangle = ((p1.x - p0.x) * (p2.y - p0.y) - (p2.x - p0.x) * (p1.y - p0.y));
+
+    // Bounding box of the triangle
+    GLfloat minX = floor(std::min({ p0.x, p1.x, p2.x }));
+    GLfloat maxX = ceil(std::max({ p0.x, p1.x, p2.x }));
+    GLfloat minY = floor(std::min({ p0.y, p1.y, p2.y }));
+    GLfloat maxY = ceil(std::max({ p0.y, p1.y, p2.y }));
+
+    float eVal0 = calculateEdgeEqn_TopLeft(e0, { minX + 0.5f, minY + 0.5f, 0 });
+    float eVal1 = calculateEdgeEqn_TopLeft(e1, { minX + 0.5f, minY + 0.5f, 0 });
+    float eVal2 = calculateEdgeEqn_TopLeft(e2, { minX + 0.5f, minY + 0.5f, 0 });
+
+    float barycentric_a = eVal0 / area_full_triangle;
+    float barycentric_b = eVal1 / area_full_triangle;
+    float barycentric_c = eVal2 / area_full_triangle;
+
+    float incrementX_a = e0.a / area_full_triangle;
+    float incrementX_b = e1.a / area_full_triangle;
+    float incrementX_c = e2.a / area_full_triangle;
+
+    float incrementY_a = e0.b / area_full_triangle;
+    float incrementY_b = e1.b / area_full_triangle;
+    float incrementY_c = e2.b / area_full_triangle;
+
+
+    float e0a = e0.a, e1a = e1.a, e2a = e2.a;
+    float e0b = e0.b, e1b = e1.b, e2b = e2.b;
+    int intMaxX = static_cast<int>(maxX);
+    int intMaxY = static_cast<int>(maxY);
+    int intMinX = static_cast<int>(minX);
+    int intMinY = static_cast<int>(minY);
+
+
+    for (int y = intMinY; y < intMaxY; ++y) {
+        float HEVal0 = eVal0;
+        float HEVal1 = eVal1;
+        float HEVal2 = eVal2;
+
+        float HEa = barycentric_a;
+        float HEb = barycentric_b;
+        float HEc = barycentric_c;
+
+        for (int x = intMinX; x < intMaxX; ++x)
+        {
+            if (PointInTriangleOptimized(HEVal0, HEVal1, HEVal2, { x + 0.5, y + 0.5 }, e0.topLeft, e1.topLeft, e2.topLeft))
+            {
+                glm::vec3 clr = HEa * c0 + HEb * c1 + HEc * c2;
+                set_pixel(x, y, { static_cast<GLubyte>(clr.x),static_cast<GLubyte>(clr.y),static_cast<GLubyte>(clr.z) });
+            }
+            HEVal0 += e0a;
+            HEVal1 += e1a;
+            HEVal2 += e2a;
+
+            HEa += incrementX_a;
+            HEb += incrementX_b;
+            HEc += incrementX_c;
+        }
+        eVal0 += e0b;
+        eVal1 += e1b;
+        eVal2 += e2b;
+
+        barycentric_a += incrementY_a;
+        barycentric_b += incrementY_b;
+        barycentric_c += incrementY_c;
+
+    }
+    return true;
+}
+
+
 

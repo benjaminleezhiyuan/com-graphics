@@ -18,9 +18,20 @@ See the assignment specs for details ...
 /*                                                                   includes
 ----------------------------------------------------------------------------- */
 #include <GL/glew.h> // for access to OpenGL API declarations 
-#include <glslshader.h> // GLSLShader class definition
-#include <glm/gtc/matrix_transform.hpp>
 #include <glhelper.h>
+#include <glslshader.h> // GLSLShader class definition
+#include <GLFW/glfw3.h> 
+#include <dpml.h>
+
+#include <cmath>
+#include <math.h>
+#include <iostream>
+#include <sstream>
+#include <iomanip>
+#include <fstream>
+#include <random>
+#include <chrono>
+#include <cctype>
 
 /*  _________________________________________________________________________ */
 struct GLPbo
@@ -100,12 +111,6 @@ struct GLPbo
     Color(GLubyte re = 0, GLubyte gr = 0, GLubyte bl = 0, GLubyte al = 255) :
         rgba{ re, gr, bl, al }
     {
-        val[0] = rgba.r;
-        val[1] = rgba.g;
-        val[2] = rgba.b;
-        val[3] = rgba.a;
-
-        raw = 0;
     }
   };
 
@@ -131,7 +136,19 @@ struct GLPbo
       // array pm are transformed by rotation transform followed by
       // viewport transformation matrix
       std::vector<glm::vec3> pd;
+
+      bool isRotating = false;
+      float angle = 0.0f;
+      enum class task {
+          wireframe = 0,
+          wireframe_color,
+          faceted,
+          shaded
+      } Tasking = GLPbo::Model::task::wireframe;
+
+     
   };
+  static Model mdl;
 
      static void viewport_xform(Model& model);
      static void set_pixel(int x, int y, GLPbo::Color draw_clr);
@@ -156,7 +173,7 @@ struct GLPbo
     // The function returns false if the triangle is back-facing; otherwise
     // the function returns true.
         static bool render_triangle(glm::vec3 const& p0, glm::vec3 const& p1,
-            glm::vec3 const& p2, glm::vec3 clr);
+            glm::vec3 const& p2, GLPbo::Color clr);
 
     // Implements a smooth shaded triangle rasterizer using edge equations,
     // top-left tie-breaking rule, and Barycentric interpolation.

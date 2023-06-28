@@ -54,6 +54,8 @@ struct GLHelper
   static GLboolean keystateM;
   static GLboolean keystateT;
   static GLboolean keystateA;
+  static GLboolean keystateW;
+  static GLboolean keystateR;
   static GLboolean mousestateLeft;
   static void update_time(double fpsCalcInt = 1.0);
 
