@@ -501,9 +501,10 @@ void GLPbo::viewport_xform(Model& model) {
     {
         
         //Apply the scale
+        glm::vec3 scaled = scale * model.pm[i];
 
         // Apply the rotation
-        glm::vec3 rotated = m_rotation * model.pm[i];
+        glm::vec3 rotated = m_rotation * scaled;
 
         // Convert the rotated vec3 to a vec4
         glm::vec4 rotated4(rotated, 1.0f);
