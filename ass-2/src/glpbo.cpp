@@ -499,7 +499,9 @@ void GLPbo::viewport_xform(Model& model) {
 
     for (size_t i = 0; i < model.pm.size(); i++)
     {
- 
+        
+        //Apply the scale
+
         // Apply the rotation
         glm::vec3 rotated = m_rotation * model.pm[i];
 
