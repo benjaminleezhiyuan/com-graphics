@@ -265,8 +265,8 @@ void GLPbo::init(GLsizei w, GLsizei h) {
 
  
     std::vector<std::string> objectName;
-    objectName.push_back("cube");
     objectName.push_back("ogre");
+    objectName.push_back("cube");
         
     
 
