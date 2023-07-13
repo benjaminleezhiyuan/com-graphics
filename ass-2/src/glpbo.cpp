@@ -27,6 +27,7 @@ GLuint GLPbo::pboid;
 GLuint GLPbo::texid;
 GLSLShader GLPbo::shdr_pgm;
 GLPbo::Color GLPbo::clear_clr;
+glm::mat4 view_chain;
 
 GLPbo::Model GLPbo::mdl;
 std::unordered_map<std::string, GLPbo::Model> mdl_map;
@@ -130,9 +131,9 @@ void GLPbo::emulate() {
             switch (current_mdl.Tasking)
             {
             case GLPbo::Model::task::wireframe:
-                render_linebresenham(int_only(current_mdl.pd[idx1].x), int_only(current_mdl.pd[idx1].y), int_only(current_mdl.pd[idx2].x), int_only(current_mdl.pd[idx2].y), { 0, 0, 0 ,255 });
-                render_linebresenham(int_only(current_mdl.pd[idx2].x), int_only(current_mdl.pd[idx2].y), int_only(current_mdl.pd[idx3].x), int_only(current_mdl.pd[idx3].y), { 0, 0, 0 ,255 });
-                render_linebresenham(int_only(current_mdl.pd[idx3].x), int_only(current_mdl.pd[idx3].y), int_only(current_mdl.pd[idx1].x), int_only(current_mdl.pd[idx1].y), { 0, 0, 0 ,255 });
+                render_linebresenham(int_only(current_mdl.pd[idx1].x), int_only(current_mdl.pd[idx1].y), int_only(current_mdl.pd[idx2].x), int_only(current_mdl.pd[idx2].y), { 0, 0, 255 ,255 });
+                render_linebresenham(int_only(current_mdl.pd[idx2].x), int_only(current_mdl.pd[idx2].y), int_only(current_mdl.pd[idx3].x), int_only(current_mdl.pd[idx3].y), { 0, 0, 255 ,255 });
+                render_linebresenham(int_only(current_mdl.pd[idx3].x), int_only(current_mdl.pd[idx3].y), int_only(current_mdl.pd[idx1].x), int_only(current_mdl.pd[idx1].y), { 0, 0, 255 ,255 });
                 mode = "Wireframe";
                 break;
             case GLPbo::Model::task::wireframe_color:
@@ -147,7 +148,7 @@ void GLPbo::emulate() {
                 mode = "Faceted";
                 break;
             case GLPbo::Model::task::shaded:
-                render_triangle(current_mdl.pd[idx1], current_mdl.pd[idx2], current_mdl.pd[idx3], current_mdl.nml[idx1] * 255.f, current_mdl.nml[idx2] * 255.f, current_mdl.nml[idx3] * 255.f);
+                render_triangle(current_mdl.pd[idx1], current_mdl.pd[idx2], current_mdl.pd[idx3], glm::dvec3{ current_mdl.pd[idx1].z }, glm::dvec3{ current_mdl.pd[idx2].z }, glm::dvec3{ current_mdl.pd[idx3].z });
                 mode = "Shaded";
                 break;
             }
@@ -229,7 +230,27 @@ void GLPbo::init(GLsizei w, GLsizei h) {
     pixel_cnt = w * h;
     byte_cnt = pixel_cnt * 4;
 
-    set_clear_color(255, 255, 255);
+    glm::mat4 view_port{
+    GLHelper::width * 0.5, 0                   , 0, 0,
+    0                  , GLHelper::height * 0.5, 0, 0,
+    0                  , 0                   , 1, 0,
+     GLHelper::width * 0.5, GLHelper::height * 0.5, 0, 1
+    };
+
+    glm::vec3 eye = glm::vec3(0.f, 0.f, 10.f);
+    glm::vec3 target = glm::vec3(0.f, 0.f, 0.f);
+    glm::vec3 up = glm::vec3(0.f, 1.f, 0.f);
+
+    glm::mat4 view{};
+    view = glm::lookAt(eye, target, up);
+
+    glm::mat4 ortho{};
+    float aspect_ratio = (float)GLPbo::width / (float)GLPbo::height;
+    ortho = glm::ortho(aspect_ratio * -1.5f, aspect_ratio * 1.5f, -1.5f, 1.5f, 8.f, 12.f);
+
+    view_chain = view_port * ortho * view;
+
+    set_clear_color(0,0,0);
 
     glCreateTextures(GL_TEXTURE_2D, 1, &texid);
 
@@ -242,15 +263,12 @@ void GLPbo::init(GLsizei w, GLsizei h) {
         nullptr,
         GL_DYNAMIC_STORAGE_BIT | GL_MAP_WRITE_BIT);
 
-    std::ifstream ifs("../scenes/ass-1.scn");
-    std::string name;
+ 
     std::vector<std::string> objectName;
-    if (ifs.is_open()) {
-        while (std::getline(ifs, name))
-        {
-            objectName.push_back(name);
-        }
-    }
+    objectName.push_back("cube");
+    objectName.push_back("ogre");
+        
+    
 
     for (const auto& x : objectName)
     {
@@ -271,7 +289,6 @@ void GLPbo::init(GLsizei w, GLsizei h) {
     }
 
     current_mdl_iterator = mdl_map.begin();
-    ++current_mdl_iterator;
 
     viewport_xform(mdl);
     setup_quad_vao();
@@ -465,54 +482,42 @@ void GLPbo::viewport_xform(Model& model) {
 
     model.pd.clear();
     radians = glm::radians(model.angle);
-    glm::mat3 m_rotation{ cos(radians),  0, sin(radians),
+    glm::mat3 m_rotation{ cos(radians),  0, -sin(radians),
                           0,  1,  0,
-                          -sin(radians), 0, cos(radians)};
+                          sin(radians), 0, cos(radians)};
 
+    double scale_val; 
+
+    if (current_mdl_iterator->first == "cube")
+    {
+        scale_val = 1.5;
+    }
+    else
+    {
+        scale_val = 2;
+    }
+    
     glm::mat3 scale
     {
-        1,0,0,
-        0,1,0,
-        0,0,1
+            scale_val,  0,          0,
+            0,          scale_val,  0,
+            0,          0,          scale_val
     };
 
-    glm::mat4 view_port{
-     GLHelper::width / 2, 0                   , 0, 0,
-     0                  , GLHelper::height / 2, 0, 0,
-     0                  , 0                   , 1, 0,
-     GLHelper::width / 2, GLHelper::height / 2, 0, 1
-    };
-   
-    glm::vec3 eye = glm::vec3(0.f, 0.f, 10.f);
-    glm::vec3 target = glm::vec3(0.f, 0.f, 0.f);
-    glm::vec3 up = glm::vec3(0.f, 1.f, 0.f);
-   
-    glm::mat4 view{};
-    view = glm::lookAt(eye, target, up);
-
-    glm::mat4 ortho{};
-    float aspect_ratio = (float)GLPbo::width / (float)GLPbo::height;
-    ortho = glm::ortho(aspect_ratio * -1.5f, aspect_ratio * 1.5f, -1.5f, 1.5f, 8.f, 12.f);
-
-    glm::mat4 view_chain;
-    view_chain = view * ortho * view_port;
+    glm::mat3 model_transform;
+    model_transform = scale * m_rotation;
 
     for (size_t i = 0; i < model.pm.size(); i++)
-    {
-        
-        //Apply the scale
-        glm::vec3 scaled = scale * model.pm[i];
-
-        // Apply the rotation
-        glm::vec3 rotated = m_rotation * scaled;
+    {   
+        //Apply the scale and rotation
+        glm::vec3 scale_rot = model_transform * model.pm[i];
 
         // Convert the rotated vec3 to a vec4
-        glm::vec4 rotated4(rotated, 1.0f);
+        glm::vec4 rotated4(scale_rot, 1.0f);
 
         // Apply the viewport transformation
-        glm::vec4 transformed = view_port * rotated4;
-        //transformed.z = 0.0f;
-
+        glm::vec4 transformed = view_chain * rotated4;
+       // model.pm[i].z = (model.pm[i].z + 1) / 2;
         model.pd.push_back(glm::vec3(transformed));
     }
 }
@@ -530,7 +535,7 @@ The color value is then assigned to the corresponding position in the PBO.
 */
 void GLPbo::set_pixel(int x, int y, Color clr)
 {
-    glScissor(0, 0, GLHelper::width, GLHelper::height);
+   glScissor(0, 0, GLHelper::width, GLHelper::height);
     int position = (GLPbo::width * y) + x;
     ptr_to_pbo[position] = clr;
 }
@@ -783,6 +788,22 @@ bool GLPbo::render_triangle(glm::dvec3 const& p0, glm::dvec3 const& p1, glm::dve
     return true;
 }
 
+
+// Create the depth buffer
+double depth_buffer[2400][1350];
+
+// Function to update the depth buffer at a specific pixel location
+void updateDepthBuffer(int x, int y, double depthValue) {
+    // Check if the given coordinates are within the screen bounds
+    if (x >= 0 && x < GLPbo::width && y >= 0 && y < GLPbo::height) {
+        //double newDepth = 0.5 * (depthValue + 1.0);
+        // Update the depth buffer if the new depth value is smaller
+        if (depthValue < depth_buffer[x][y]) {
+            depth_buffer[x][y] = depthValue;
+        }
+    }
+}
+
 /**
 @brief Renders a filled triangle using the scanline algorithm with interpolated colors.
 This function renders a filled triangle using the scanline algorithm with interpolated colors.
@@ -840,6 +861,7 @@ bool GLPbo::render_triangle(glm::dvec3 const& p0, glm::dvec3 const& p1, glm::dve
 
     double e0a = e0.a, e1a = e1.a, e2a = e2.a;
     double e0b = e0.b, e1b = e1.b, e2b = e2.b;
+
     int intMaxX = static_cast<int>(maxX);
     int intMaxY = static_cast<int>(maxY);
     int intMinX = static_cast<int>(minX);
@@ -859,8 +881,10 @@ bool GLPbo::render_triangle(glm::dvec3 const& p0, glm::dvec3 const& p1, glm::dve
         {
             if (PointInTriangleOptimized(HEVal0, HEVal1, HEVal2, { x + 0.5, y + 0.5 }, e0.topLeft, e1.topLeft, e2.topLeft))
             {
-                glm::dvec3 clr = HEa * c0 + HEb * c1 + HEc * c2;
-                set_pixel(x, y, { static_cast<GLubyte>(clr.x),static_cast<GLubyte>(clr.y),static_cast<GLubyte>(clr.z) });
+                double z = HEa * p0.z + HEb * p1.z + HEc * p2.z;
+                z = (z + 1) / 2;
+                set_pixel(x, y, { static_cast<GLubyte>(z*255.0),static_cast<GLubyte>(z* 255.0),static_cast<GLubyte>(z* 255.0) });
+                updateDepthBuffer(x, y, z);
             }
             HEVal0 += e0a;
             HEVal1 += e1a;
@@ -881,6 +905,5 @@ bool GLPbo::render_triangle(glm::dvec3 const& p0, glm::dvec3 const& p1, glm::dve
     }
     return true;
 }
-
 
 
