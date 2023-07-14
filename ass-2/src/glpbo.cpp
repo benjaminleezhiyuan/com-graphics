@@ -788,22 +788,6 @@ bool GLPbo::render_triangle(glm::dvec3 const& p0, glm::dvec3 const& p1, glm::dve
     return true;
 }
 
-
-// Create the depth buffer
-double depth_buffer[2400][1350];
-
-// Function to update the depth buffer at a specific pixel location
-void updateDepthBuffer(int x, int y, double depthValue) {
-    // Check if the given coordinates are within the screen bounds
-    if (x >= 0 && x < GLPbo::width && y >= 0 && y < GLPbo::height) {
-        //double newDepth = 0.5 * (depthValue + 1.0);
-        // Update the depth buffer if the new depth value is smaller
-        if (depthValue < depth_buffer[x][y]) {
-            depth_buffer[x][y] = depthValue;
-        }
-    }
-}
-
 /**
 @brief Renders a filled triangle using the scanline algorithm with interpolated colors.
 This function renders a filled triangle using the scanline algorithm with interpolated colors.
@@ -884,7 +868,6 @@ bool GLPbo::render_triangle(glm::dvec3 const& p0, glm::dvec3 const& p1, glm::dve
                 double z = HEa * p0.z + HEb * p1.z + HEc * p2.z;
                 z = (z + 1) / 2;
                 set_pixel(x, y, { static_cast<GLubyte>(z*255.0),static_cast<GLubyte>(z* 255.0),static_cast<GLubyte>(z* 255.0) });
-                updateDepthBuffer(x, y, z);
             }
             HEVal0 += e0a;
             HEVal1 += e1a;
