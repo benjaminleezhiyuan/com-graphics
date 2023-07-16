@@ -139,9 +139,8 @@ struct GLPbo
       float angle = 0.0f;
       enum class task {
           wireframe = 0,
-          wireframe_color,
+          shaded,
           faceted,
-          shaded
       } Tasking = GLPbo::Model::task::wireframe;
 
      

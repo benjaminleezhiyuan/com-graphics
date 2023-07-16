@@ -85,7 +85,7 @@ void GLPbo::emulate() {
     if (GLHelper::keystateW)
     {
         current_mdl.Tasking = static_cast<GLPbo::Model::task>(static_cast<int>(current_mdl.Tasking) + 1);
-        if (static_cast<int>(current_mdl.Tasking) == 4)
+        if (static_cast<int>(current_mdl.Tasking) == 3)
         {
             current_mdl.Tasking = GLPbo::Model::task::wireframe;
         }
@@ -136,20 +136,13 @@ void GLPbo::emulate() {
                 render_linebresenham(int_only(current_mdl.pd[idx3].x), int_only(current_mdl.pd[idx3].y), int_only(current_mdl.pd[idx1].x), int_only(current_mdl.pd[idx1].y), { 0, 0, 255 ,255 });
                 mode = "Wireframe";
                 break;
-            case GLPbo::Model::task::wireframe_color:
-                //change colour based on rotational position to allow colour to change
-                render_linebresenham(int_only(current_mdl.pd[idx1].x), int_only(current_mdl.pd[idx1].y), int_only(current_mdl.pd[idx2].x), int_only(current_mdl.pd[idx2].y), { static_cast<GLubyte>(r * current_mdl.pd[idx1].x)    ,static_cast<GLubyte>(g * current_mdl.pd[idx1].x),static_cast<GLubyte>(b * current_mdl.pd[idx1].y),255 });
-                render_linebresenham(int_only(current_mdl.pd[idx2].x), int_only(current_mdl.pd[idx2].y), int_only(current_mdl.pd[idx3].x), int_only(current_mdl.pd[idx3].y), { static_cast<GLubyte>(r * current_mdl.pd[idx2].y),static_cast<GLubyte>(g * current_mdl.pd[idx2].x),static_cast<GLubyte>(b * current_mdl.pd[idx2].y),255 });
-                render_linebresenham(int_only(current_mdl.pd[idx3].x), int_only(current_mdl.pd[idx3].y), int_only(current_mdl.pd[idx1].x), int_only(current_mdl.pd[idx1].y), { static_cast<GLubyte>(r * current_mdl.pd[idx2].y)   ,static_cast<GLubyte>(g * current_mdl.pd[idx2].x),static_cast<GLubyte>(b * current_mdl.pd[idx3].y),255 });
-                mode = "Wireframe Color";
+            case GLPbo::Model::task::shaded:
+                render_triangle(current_mdl.pd[idx1], current_mdl.pd[idx2], current_mdl.pd[idx3], glm::dvec3{ current_mdl.pd[idx1].z }, glm::dvec3{ current_mdl.pd[idx2].z }, glm::dvec3{ current_mdl.pd[idx3].z });
+                mode = "Shaded";
                 break;
             case GLPbo::Model::task::faceted:
                 render_triangle(current_mdl.pd[idx1], current_mdl.pd[idx2], current_mdl.pd[idx3], { r,g,b });
                 mode = "Faceted";
-                break;
-            case GLPbo::Model::task::shaded:
-                render_triangle(current_mdl.pd[idx1], current_mdl.pd[idx2], current_mdl.pd[idx3], glm::dvec3{ current_mdl.pd[idx1].z }, glm::dvec3{ current_mdl.pd[idx2].z }, glm::dvec3{ current_mdl.pd[idx3].z });
-                mode = "Shaded";
                 break;
             }
         }
