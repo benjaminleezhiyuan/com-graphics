@@ -27,10 +27,9 @@ namespace CORE10
     float left_plane;
     float right_plane;
 
-    struct PointLight {
-        glm::vec3 intensity{ 1.f,1.f,1.f }; // we choose to not store the alpha component
-        glm::vec3 position{ 0.f,0.f,10.f };
-    };
+    glm::vec3 intensity{1.f,1.f,1.f}; // we choose to not store the alpha component
+    glm::vec3 light_pos{ 0.f,0.f,10.f };
+   
 }
 
 // Definitions for all static data members.
@@ -47,6 +46,7 @@ GLSLShader GLPbo::shdr_pgm;
 GLPbo::Color GLPbo::clear_clr;
 glm::mat4 view_chain;
 double* depthBuffer;
+
 
 GLPbo::Model GLPbo::mdl;
 std::unordered_map<std::string, GLPbo::Model> mdl_map;
@@ -822,7 +822,7 @@ bool GLPbo::render_faceted_shading(glm::dvec3 const& p0, glm::dvec3 const& p1, g
     glm::dvec3 normal = glm::cross(AB, AC);
     glm::dvec3 outwardNormal = glm::normalize(normal);
 
-    glm::dvec3 lightpos = CORE10::PointLight::position;
+    glm::dvec3 lightpos = CORE10::light_pos;
     lightpos = inverse_transform * lightpos;
     glm::dvec3 vectorToLight = lightpos - centroid;
     glm::dvec3 normalisedvectorToLight = glm::normalize(vectorToLight);
