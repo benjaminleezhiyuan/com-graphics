@@ -11,15 +11,33 @@ window and start up an OpenGL context and to extract function pointers
 to OpenGL implementations.
 
 *//*__________________________________________________________________________*/
-
 #include <glpbo.h>
 #define UNREFERENCED_PARAMETER(P) (P)  
 #define int_only static_cast<int>
+
+namespace CORE10
+{
+    glm::vec3 cam_pos = glm::vec3(0.f, 0.f, 10.f);
+    glm::vec3 target = glm::vec3(0.f, 0.f, 0.f);
+
+    float near_plane = 8.f;
+    float far_plane = 12.f;
+    float top_plane = 1.5f;
+    float bottom_plane = -1.5f;
+    float left_plane;
+    float right_plane;
+
+    struct PointLight {
+        glm::vec3 intensity{ 1.f,1.f,1.f }; // we choose to not store the alpha component
+        glm::vec3 position{ 0.f,0.f,10.f };
+    };
+}
+
 // Definitions for all static data members.
-GLsizei GLPbo::width;
-GLsizei GLPbo::height;
 GLsizei GLPbo::pixel_cnt;
 GLsizei GLPbo::byte_cnt;
+GLsizei GLPbo::width;
+GLsizei GLPbo::height;
 GLPbo::Color* GLPbo::ptr_to_pbo{ nullptr };
 GLuint GLPbo::vaoid;
 GLuint GLPbo::elem_cnt;
@@ -143,7 +161,7 @@ void GLPbo::emulate() {
                 mode = "Shaded";
                 break;
             case GLPbo::Model::task::faceted:
-                render_triangle(current_mdl.pd[idx1], current_mdl.pd[idx2], current_mdl.pd[idx3], { r,g,b });
+                render_faceted_shading(current_mdl.pd[idx1], current_mdl.pd[idx2], current_mdl.pd[idx3]);
                 mode = "Faceted";
                 break;
             }
@@ -225,6 +243,7 @@ void GLPbo::init(GLsizei w, GLsizei h) {
     pixel_cnt = w * h;
     byte_cnt = pixel_cnt * 4;
 
+    
     depthBuffer = new double[pixel_cnt];
 
     glm::mat4 view_port{
@@ -234,16 +253,19 @@ void GLPbo::init(GLsizei w, GLsizei h) {
      GLHelper::width * 0.5, GLHelper::height * 0.5, 0, 1
     };
 
-    glm::vec3 eye = glm::vec3(0.f, 0.f, 10.f);
-    glm::vec3 target = glm::vec3(0.f, 0.f, 0.f);
+    glm::vec3 eye = CORE10::cam_pos;
+    glm::vec3 target = CORE10::target;
     glm::vec3 up = glm::vec3(0.f, 1.f, 0.f);
 
     glm::mat4 view{};
     view = glm::lookAt(eye, target, up);
 
     glm::mat4 ortho{};
+    float ar = (float)GLPbo::width / (float)GLPbo::height;
     float aspect_ratio = (float)GLPbo::width / (float)GLPbo::height;
-    ortho = glm::ortho(aspect_ratio * -1.5f, aspect_ratio * 1.5f, -1.5f, 1.5f, 8.f, 12.f);
+    CORE10::left_plane = aspect_ratio * CORE10::bottom_plane;
+    CORE10::right_plane = aspect_ratio * CORE10::top_plane;
+    ortho = glm::ortho(CORE10::left_plane, CORE10::right_plane, CORE10::bottom_plane, CORE10::top_plane, CORE10::near_plane, CORE10::far_plane);
 
     view_chain = view_port * ortho * view;
 
@@ -739,7 +761,7 @@ The function returns true upon successful rendering.
 @param clr The color of the triangle.
 @return True if the triangle was rendered successfully, false otherwise.
 */
-bool GLPbo::render_triangle(glm::dvec3 const& p0, glm::dvec3 const& p1, glm::dvec3 const& p2, GLPbo::Color clr) {
+bool GLPbo::render_faceted_shading(glm::dvec3 const& p0, glm::dvec3 const& p1, glm::dvec3 const& p2) {
     EdgeEqn e0, e1, e2;
 
     // Edge equation of the 3 lines
@@ -764,6 +786,58 @@ bool GLPbo::render_triangle(glm::dvec3 const& p0, glm::dvec3 const& p1, glm::dve
     int intMinX = static_cast<int>(minX);
     int intMinY = static_cast<int>(minY);
 
+    glm::mat3 m_rotation{ cos(radians),  0, -sin(radians),
+                          0,  1,  0,
+                          sin(radians), 0, cos(radians) };
+
+    double scale_val;
+
+    if (current_mdl_iterator->first == "cube")
+    {
+        scale_val = 1.5;
+    }
+    else
+    {
+        scale_val = 2;
+    }
+
+    glm::mat3 scale
+    {
+            scale_val,  0,          0,
+            0,          scale_val,  0,
+            0,          0,          scale_val
+    };
+
+    glm::mat3 model_transform;
+    model_transform = scale * m_rotation;
+    glm::mat3 inverse_transform = glm::inverse(model_transform);
+
+    double Cx = (p0.x + p1.x + p2.x) / 3.0;
+    double Cy = (p0.y + p1.y + p2.y) / 3.0;
+    double Cz = (p0.z + p1.z + p2.z) / 3.0;
+    glm::dvec3 centroid = glm::dvec3(Cx, Cy, Cz);
+
+    glm::dvec3 AB = p1 - p0;
+    glm::dvec3 AC = p2 - p0;
+    glm::dvec3 normal = glm::cross(AB, AC);
+    glm::dvec3 outwardNormal = glm::normalize(normal);
+
+    glm::dvec3 lightpos = glm::dvec3{ 0.f,0.f,10.f };
+    lightpos = inverse_transform * lightpos;
+    glm::dvec3 vectorToLight = lightpos - centroid;
+    glm::dvec3 normalisedvectorToLight = glm::normalize(vectorToLight);
+    glm::dvec3 referenceVector = glm::dvec3(0, 1, 0);
+
+    double dotProduct = glm::dot(normalisedvectorToLight, referenceVector);
+    double angle = glm::acos(dotProduct);
+    double angleDegrees = glm::degrees(angle);
+   
+    double reflectance{ 1.0};
+    double incomingLight = glm::max(0.0, angleDegrees) * 1.0;
+    double outgoingLight = reflectance * incomingLight;
+
+    GLubyte clr = static_cast<GLubyte>(outgoingLight);
+    
     for (int y = intMinY; y < intMaxY; ++y)
     {
         double HEVal0 = eVal0;
@@ -774,7 +848,7 @@ bool GLPbo::render_triangle(glm::dvec3 const& p0, glm::dvec3 const& p1, glm::dve
         {
             if (PointInTriangleOptimized(HEVal0, HEVal1, HEVal2, { x + 0.5, y + 0.5 }, e0.topLeft, e1.topLeft, e2.topLeft))
             {
-                set_pixel(x, y, clr);
+                set_pixel(x, y, {clr,clr,clr});
             }
             // plus 'a' is increment it horizontally aka increment x-axis
             HEVal0 += e0a;

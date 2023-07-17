@@ -170,8 +170,8 @@ struct GLPbo
     // color coordinates in range [0, 1].
     // The function returns false if the triangle is back-facing; otherwise
     // the function returns true.
-        static bool render_triangle(glm::dvec3 const& p0, glm::dvec3 const& p1,
-            glm::dvec3 const& p2, GLPbo::Color clr);
+        static bool render_faceted_shading(glm::dvec3 const& p0, glm::dvec3 const& p1,
+            glm::dvec3 const& p2);
 
     // Implements a smooth shaded triangle rasterizer using edge equations,
     // top-left tie-breaking rule, and Barycentric interpolation.
