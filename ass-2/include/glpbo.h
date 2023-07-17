@@ -95,6 +95,7 @@ struct GLPbo
   // akin to glClear(GL_COLOR_BUFFER_BIT) - uses the pointer ptr_to_pbo
   // to get access to the PBO's data store ...
   static void clear_color_buffer();
+  static void clear_depth_buffer();
 
   // what value to use for clearing color buffer?
   static Color clear_clr;
@@ -183,9 +184,8 @@ struct GLPbo
     // range [0, 1].
     // The function returns false if the triangle is back-facing; otherwise
     // the function returns true.
-        static bool render_triangle(glm::dvec3 const& p0, glm::dvec3 const& p1,
-            glm::dvec3 const& p2, glm::dvec3 const& c0,
-            glm::dvec3 const& c1, glm::dvec3 const& c2);
+        static bool render_shadow_map(glm::dvec3 const& p0, glm::dvec3 const& p1,
+            glm::dvec3 const& p2);
 
 };
 

@@ -28,6 +28,7 @@ GLuint GLPbo::texid;
 GLSLShader GLPbo::shdr_pgm;
 GLPbo::Color GLPbo::clear_clr;
 glm::mat4 view_chain;
+double* depthBuffer;
 
 GLPbo::Model GLPbo::mdl;
 std::unordered_map<std::string, GLPbo::Model> mdl_map;
@@ -108,6 +109,7 @@ void GLPbo::emulate() {
     // Mapping pboid to client address ptr_to_pbo
     ptr_to_pbo = static_cast<GLPbo::Color*>(glMapNamedBuffer(pboid, GL_WRITE_ONLY));
     clear_color_buffer();
+    clear_depth_buffer();
     viewport_xform(current_mdl);
 
     for (size_t i = 0; i < current_mdl.tri.size(); i += 3)
@@ -137,7 +139,7 @@ void GLPbo::emulate() {
                 mode = "Wireframe";
                 break;
             case GLPbo::Model::task::shaded:
-                render_triangle(current_mdl.pd[idx1], current_mdl.pd[idx2], current_mdl.pd[idx3], glm::dvec3{ current_mdl.pd[idx1].z }, glm::dvec3{ current_mdl.pd[idx2].z }, glm::dvec3{ current_mdl.pd[idx3].z });
+                render_shadow_map(current_mdl.pd[idx1], current_mdl.pd[idx2], current_mdl.pd[idx3]);
                 mode = "Shaded";
                 break;
             case GLPbo::Model::task::faceted:
@@ -222,6 +224,8 @@ void GLPbo::init(GLsizei w, GLsizei h) {
 
     pixel_cnt = w * h;
     byte_cnt = pixel_cnt * 4;
+
+    depthBuffer = new double[pixel_cnt];
 
     glm::mat4 view_port{
     GLHelper::width * 0.5, 0                   , 0, 0,
@@ -460,6 +464,11 @@ void GLPbo::set_clear_color(GLubyte r, GLubyte g, GLubyte b, GLubyte a) {
 void GLPbo::clear_color_buffer() {
     // FPS: 510
     std::fill(ptr_to_pbo, ptr_to_pbo + pixel_cnt, clear_clr);
+}
+
+void GLPbo::clear_depth_buffer()
+{
+    std::fill(depthBuffer, depthBuffer + pixel_cnt, 1.0);
 }
 
 /**
@@ -802,7 +811,7 @@ The function returns true upon successful rendering.
 @param c2 The color at the third vertex.
 @return True if the triangle was rendered successfully, false otherwise.
 */
-bool GLPbo::render_triangle(glm::dvec3 const& p0, glm::dvec3 const& p1, glm::dvec3 const& p2, glm::dvec3 const& c0, glm::dvec3 const& c1, glm::dvec3 const& c2) {
+bool GLPbo::render_shadow_map(glm::dvec3 const& p0, glm::dvec3 const& p1, glm::dvec3 const& p2) {
 
     EdgeEqn e0, e1, e2;
 
@@ -860,7 +869,12 @@ bool GLPbo::render_triangle(glm::dvec3 const& p0, glm::dvec3 const& p1, glm::dve
             {
                 double z = HEa * p0.z + HEb * p1.z + HEc * p2.z;
                 z = (z + 1) / 2;
-                set_pixel(x, y, { static_cast<GLubyte>(z*255.0),static_cast<GLubyte>(z* 255.0),static_cast<GLubyte>(z* 255.0) });
+                int buffer_idx = y * GLPbo::width + x;
+                if (z < depthBuffer[buffer_idx])
+                {
+                    depthBuffer[buffer_idx] = z;
+                    set_pixel(x, y, { static_cast<GLubyte>(z * 255.0),static_cast<GLubyte>(z * 255.0),static_cast<GLubyte>(z * 255.0) });
+                }
             }
             HEVal0 += e0a;
             HEVal1 += e1a;
