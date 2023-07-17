@@ -822,7 +822,7 @@ bool GLPbo::render_faceted_shading(glm::dvec3 const& p0, glm::dvec3 const& p1, g
     glm::dvec3 normal = glm::cross(AB, AC);
     glm::dvec3 outwardNormal = glm::normalize(normal);
 
-    glm::dvec3 lightpos = glm::dvec3{ 0.f,0.f,10.f };
+    glm::dvec3 lightpos = CORE10::PointLight::position;
     lightpos = inverse_transform * lightpos;
     glm::dvec3 vectorToLight = lightpos - centroid;
     glm::dvec3 normalisedvectorToLight = glm::normalize(vectorToLight);
