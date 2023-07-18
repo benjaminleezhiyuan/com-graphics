@@ -140,10 +140,12 @@ struct GLPbo
       float angle = 0.0f;
       enum class task {
           wireframe = 0,
-          shaded,
+          depth,
           faceted,
+          shaded,
       } Tasking = GLPbo::Model::task::wireframe;
 
+      glm::mat3 ModelTrans{};
      
   };
   static Model mdl;
@@ -187,6 +189,8 @@ struct GLPbo
         static bool render_shadow_map(glm::dvec3 const& p0, glm::dvec3 const& p1,
             glm::dvec3 const& p2);
 
+        static bool render_smooth_shading(glm::dvec3 const& p0, glm::dvec3 const& p1, glm::dvec3 const& p2, glm::vec3 const& m0, glm::vec3 const& m1, glm::vec3 const& m2,
+            glm::dvec3 const& n0, glm::dvec3 const& n1, glm::dvec3 const& n2);
 };
 
 #endif /* GLPBO_H */

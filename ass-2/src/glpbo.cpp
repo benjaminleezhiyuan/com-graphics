@@ -17,6 +17,8 @@ to OpenGL implementations.
 
 namespace CORE10
 {
+    std::vector<std::string> objectName{ "ogre","cube" };
+
     glm::vec3 cam_pos = glm::vec3(0.f, 0.f, 10.f);
     glm::vec3 target = glm::vec3(0.f, 0.f, 0.f);
 
@@ -27,8 +29,8 @@ namespace CORE10
     float left_plane;
     float right_plane;
 
-    glm::vec3 intensity{1.f,1.f,1.f}; // we choose to not store the alpha component
-    glm::vec3 light_pos{ 0.f,0.f,10.f };
+    glm::dvec3 intensity{1.0,1.0,1.0}; // we choose to not store the alpha component
+    glm::dvec3 light_pos{ 0.0,0.0,10.0 };
    
 }
 
@@ -46,8 +48,7 @@ GLSLShader GLPbo::shdr_pgm;
 GLPbo::Color GLPbo::clear_clr;
 glm::mat4 view_chain;
 double* depthBuffer;
-
-
+GLPbo::Model ModelTrans{};
 GLPbo::Model GLPbo::mdl;
 std::unordered_map<std::string, GLPbo::Model> mdl_map;
 std::unordered_map<std::string, GLPbo::Model>::iterator current_mdl_iterator;
@@ -79,12 +80,6 @@ Finally, the PBO is unmapepd and the texture image is updated using glTextureSub
 \note This function assumes that the necessary variables and objects (timesSpeed, clear_clr, pboid, ptr_to_pbo, texid, width, and height) have been properly initialized.
 *************************************************************************/
 void GLPbo::emulate() {
-
-    // Create a rnadom number generator
-    std::default_random_engine dre;
-    dre.seed(30);
-    std::uniform_real_distribution<float> urdf(.0, 1.0);
-
     if (GLHelper::keystateM)
     {
         // The 'M' key has just been released.
@@ -104,7 +99,7 @@ void GLPbo::emulate() {
     if (GLHelper::keystateW)
     {
         current_mdl.Tasking = static_cast<GLPbo::Model::task>(static_cast<int>(current_mdl.Tasking) + 1);
-        if (static_cast<int>(current_mdl.Tasking) == 3)
+        if (static_cast<int>(current_mdl.Tasking) == 4)
         {
             current_mdl.Tasking = GLPbo::Model::task::wireframe;
         }
@@ -145,9 +140,6 @@ void GLPbo::emulate() {
         glm::vec3 normal = glm::cross(edge1, edge2);
         // Check if the triangle is back-facing.
         if (normal.z >= 0) {
-            GLubyte r = static_cast<GLubyte>(urdf(dre) * 255);
-            GLubyte g = static_cast<GLubyte>(urdf(dre) * 255);
-            GLubyte b = static_cast<GLubyte>(urdf(dre) * 255);
             switch (current_mdl.Tasking)
             {
             case GLPbo::Model::task::wireframe:
@@ -156,13 +148,19 @@ void GLPbo::emulate() {
                 render_linebresenham(int_only(current_mdl.pd[idx3].x), int_only(current_mdl.pd[idx3].y), int_only(current_mdl.pd[idx1].x), int_only(current_mdl.pd[idx1].y), { 0, 0, 255 ,255 });
                 mode = "Wireframe";
                 break;
-            case GLPbo::Model::task::shaded:
+            case GLPbo::Model::task::depth:
                 render_shadow_map(current_mdl.pd[idx1], current_mdl.pd[idx2], current_mdl.pd[idx3]);
-                mode = "Shaded";
+                mode = "Depth Buffer";
                 break;
             case GLPbo::Model::task::faceted:
                 render_faceted_shading(current_mdl.pd[idx1], current_mdl.pd[idx2], current_mdl.pd[idx3], current_mdl.pm[idx1], current_mdl.pm[idx2], current_mdl.pm[idx3]);
                 mode = "Faceted";
+                break;
+            case GLPbo::Model::task::shaded:
+                render_smooth_shading(current_mdl.pd[idx1], current_mdl.pd[idx2], current_mdl.pd[idx3], 
+                    current_mdl.pm[idx1], current_mdl.pm[idx2], current_mdl.pm[idx3], 
+                    current_mdl.nml[idx1], current_mdl.nml[idx2], current_mdl.nml[idx3]);
+                mode = "Shaded";
                 break;
             }
         }
@@ -282,14 +280,7 @@ void GLPbo::init(GLsizei w, GLsizei h) {
         nullptr,
         GL_DYNAMIC_STORAGE_BIT | GL_MAP_WRITE_BIT);
 
- 
-    std::vector<std::string> objectName;
-    objectName.push_back("ogre");
-    objectName.push_back("cube");
-        
-    
-
-    for (const auto& x : objectName)
+    for (const auto& x : CORE10::objectName)
     {
         GLPbo::mdl.pm.clear();
         GLPbo::mdl.nml.clear();
@@ -297,12 +288,6 @@ void GLPbo::init(GLsizei w, GLsizei h) {
         GLPbo::mdl.tri.clear();
         if (DPML::parse_obj_mesh("../meshes/" + x + ".obj", mdl.pm, mdl.nml, mdl.tex, mdl.tri, true, true, true))
         {
-            for (auto& normal : mdl.nml)
-            {
-                normal.x = (normal.x + 1) / 2;
-                normal.y = (normal.y + 1) / 2;
-                normal.z = (normal.z + 1) / 2;
-            }
             mdl_map[x] = mdl;
         }
     }
@@ -527,14 +512,13 @@ void GLPbo::viewport_xform(Model& model) {
             0,          scale_val,  0,
             0,          0,          scale_val
     };
-
-    glm::mat3 model_transform;
-    model_transform = scale * m_rotation;
+    model.ModelTrans = m_rotation;
+    glm::mat3 model_trans = scale * m_rotation;
 
     for (size_t i = 0; i < model.pm.size(); i++)
     {   
         //Apply the scale and rotation
-        glm::vec3 scale_rot = model_transform * model.pm[i];
+        glm::vec3 scale_rot = model_trans * model.pm[i];
 
         // Convert the rotated vec3 to a vec4
         glm::vec4 rotated4(scale_rot, 1.0f);
@@ -801,11 +785,7 @@ bool GLPbo::render_faceted_shading(glm::dvec3 const& p0, glm::dvec3 const& p1, g
     int intMinX = static_cast<int>(minX);
     int intMinY = static_cast<int>(minY);
 
-    glm::mat3 m_rotation{ cos(radians),  0, -sin(radians),
-                          0,  1,  0,
-                          sin(radians), 0, cos(radians) };
-
-    glm::mat3 inverse_transform = glm::inverse(m_rotation);
+    glm::mat3 inverse_transform = glm::inverse(current_mdl_iterator->second.ModelTrans);
 
     double Cx = (m0.x + m1.x + m2.x) * 0.333;
     double Cy = (m0.y + m1.y + m2.y) * 0.333;
@@ -817,7 +797,7 @@ bool GLPbo::render_faceted_shading(glm::dvec3 const& p0, glm::dvec3 const& p1, g
     glm::dvec3 AC = m2 - m0;
     glm::dvec3 outwardNormal = glm::normalize(glm::cross(AB, AC));
 
-    glm::dvec3 lightpos{0.f,0.f,10.f};
+    glm::dvec3 lightpos = CORE10::light_pos;
     lightpos = inverse_transform * lightpos;
     glm::dvec3 vectorToLight = lightpos - centroid;
     glm::dvec3 normalisedvectorToLight = glm::normalize(vectorToLight);
@@ -959,6 +939,107 @@ bool GLPbo::render_shadow_map(glm::dvec3 const& p0, glm::dvec3 const& p1, glm::d
                 {
                     depthBuffer[buffer_idx] = z;
                     set_pixel(x, y, { static_cast<GLubyte>(z * 255.0),static_cast<GLubyte>(z * 255.0),static_cast<GLubyte>(z * 255.0) });
+                }
+            }
+            HEVal0 += e0a;
+            HEVal1 += e1a;
+            HEVal2 += e2a;
+
+            HEa += incrementX_a;
+            HEb += incrementX_b;
+            HEc += incrementX_c;
+        }
+        eVal0 += e0b;
+        eVal1 += e1b;
+        eVal2 += e2b;
+
+        barycentric_a += incrementY_a;
+        barycentric_b += incrementY_b;
+        barycentric_c += incrementY_c;
+
+    }
+    return true;
+}
+
+bool GLPbo::render_smooth_shading(glm::dvec3 const& p0, glm::dvec3 const& p1, glm::dvec3 const& p2, glm::vec3 const& m0, glm::vec3 const& m1, glm::vec3 const& m2, 
+    glm::dvec3 const& n0, glm::dvec3 const& n1, glm::dvec3 const& n2) {
+ 
+    //pm0 to lightsource pos
+    glm::dvec3 lightsource = CORE10::light_pos;
+    glm::dvec3 pm0 = glm::inverse(current_mdl_iterator->second.ModelTrans) * lightsource - m0;
+    glm::dvec3 pm1 = glm::inverse(current_mdl_iterator->second.ModelTrans) * lightsource - m1;
+    glm::dvec3 pm2 = glm::inverse(current_mdl_iterator->second.ModelTrans) * lightsource - m2;
+    pm0 = glm::normalize(pm0);
+    pm1 = glm::normalize(pm1);
+    pm2 = glm::normalize(pm2);
+    glm::dvec3 intensity = CORE10::intensity;
+    glm::dvec3 c0 = intensity * glm::max(0.0, glm::dot(n0, pm0));
+    glm::dvec3 c1 = intensity * glm::max(0.0, glm::dot(n1, pm1));
+    glm::dvec3 c2 = intensity * glm::max(0.0, glm::dot(n2, pm2));
+
+    EdgeEqn e0, e1, e2;
+
+    // E1dge equation of the 3 lines0
+    computeEdgeEqn(p1, p2, e0);
+    computeEdgeEqn(p2, p0, e1);
+    computeEdgeEqn(p0, p1, e2);
+
+    double area_full_triangle = ((p1.x - p0.x) * (p2.y - p0.y) - (p2.x - p0.x) * (p1.y - p0.y));
+
+    // Bounding box of the triangle
+    GLdouble minX = floor(std::min({ p0.x, p1.x, p2.x }));
+    GLdouble maxX = ceil(std::max({ p0.x, p1.x, p2.x }));
+    GLdouble minY = floor(std::min({ p0.y, p1.y, p2.y }));
+    GLdouble maxY = ceil(std::max({ p0.y, p1.y, p2.y }));
+
+    double eVal0 = calculateEdgeEqn_TopLeft(e0, { minX + 0.5f, minY + 0.5f, 0 });
+    double eVal1 = calculateEdgeEqn_TopLeft(e1, { minX + 0.5f, minY + 0.5f, 0 });
+    double eVal2 = calculateEdgeEqn_TopLeft(e2, { minX + 0.5f, minY + 0.5f, 0 });
+
+    double barycentric_a = eVal0 / area_full_triangle;
+    double barycentric_b = eVal1 / area_full_triangle;
+    double barycentric_c = eVal2 / area_full_triangle;
+
+    double incrementX_a = e0.a / area_full_triangle;
+    double incrementX_b = e1.a / area_full_triangle;
+    double incrementX_c = e2.a / area_full_triangle;
+
+    double incrementY_a = e0.b / area_full_triangle;
+    double incrementY_b = e1.b / area_full_triangle;
+    double incrementY_c = e2.b / area_full_triangle;
+
+
+    double e0a = e0.a, e1a = e1.a, e2a = e2.a;
+    double e0b = e0.b, e1b = e1.b, e2b = e2.b;
+
+    int intMaxX = static_cast<int>(maxX);
+    int intMaxY = static_cast<int>(maxY);
+    int intMinX = static_cast<int>(minX);
+    int intMinY = static_cast<int>(minY);
+
+
+    for (int y = intMinY; y < intMaxY; ++y) {
+        double HEVal0 = eVal0;
+        double HEVal1 = eVal1;
+        double HEVal2 = eVal2;
+
+        double HEa = barycentric_a;
+        double HEb = barycentric_b;
+        double HEc = barycentric_c;
+
+        for (int x = intMinX; x < intMaxX; ++x)
+        {
+            if (PointInTriangleOptimized(HEVal0, HEVal1, HEVal2, { x + 0.5, y + 0.5 }, e0.topLeft, e1.topLeft, e2.topLeft))
+            {
+                double z = HEa * p0.z + HEb * p1.z + HEc * p2.z;
+                z = (z + 1) / 2;
+                int buffer_idx = y * GLPbo::width + x;
+               
+                if (z < depthBuffer[buffer_idx])
+                {
+                glm::dvec3 clr = HEa * c0 + HEb * c1 + HEc * c2;
+                depthBuffer[buffer_idx] = z;
+                set_pixel(x, y, { static_cast<GLubyte>(clr.x*255),static_cast<GLubyte>(clr.y*255),static_cast<GLubyte>(clr.z*255) });
                 }
             }
             HEVal0 += e0a;
