@@ -18,6 +18,7 @@ to OpenGL implementations.
 namespace CORE10
 {
     std::vector<std::string> objectName{ "ogre","cube" };
+    std::string textureName{ "ogre.tex" };
 
     glm::vec3 cam_pos = glm::vec3(0.f, 0.f, 10.f);
     glm::vec3 target = glm::vec3(0.f, 0.f, 0.f);
