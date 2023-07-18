@@ -161,7 +161,7 @@ void GLPbo::emulate() {
                 mode = "Shaded";
                 break;
             case GLPbo::Model::task::faceted:
-                render_faceted_shading(current_mdl.pd[idx1], current_mdl.pd[idx2], current_mdl.pd[idx3]);
+                render_faceted_shading(current_mdl.pd[idx1], current_mdl.pd[idx2], current_mdl.pd[idx3], current_mdl.pm[idx1], current_mdl.pm[idx2], current_mdl.pm[idx3]);
                 mode = "Faceted";
                 break;
             }
@@ -761,13 +761,15 @@ The function returns true upon successful rendering.
 @param clr The color of the triangle.
 @return True if the triangle was rendered successfully, false otherwise.
 */
-bool GLPbo::render_faceted_shading(glm::dvec3 const& p0, glm::dvec3 const& p1, glm::dvec3 const& p2) {
+bool GLPbo::render_faceted_shading(glm::dvec3 const& p0, glm::dvec3 const& p1, glm::dvec3 const& p2, glm::dvec3 const& m0, glm::dvec3 const& m1, glm::dvec3 const& m2) {
     EdgeEqn e0, e1, e2;
 
     // Edge equation of the 3 lines
     computeEdgeEqn(p1, p2, e0);
     computeEdgeEqn(p2, p0, e1);
     computeEdgeEqn(p0, p1, e2);
+
+    double area_full_triangle = ((p1.x - p0.x) * (p2.y - p0.y) - (p2.x - p0.x) * (p1.y - p0.y));
 
     // Bounding box of the triangle
     GLdouble minX = floor(std::min({ p0.x, p1.x, p2.x }));
@@ -779,8 +781,21 @@ bool GLPbo::render_faceted_shading(glm::dvec3 const& p0, glm::dvec3 const& p1, g
     double eVal1 = calculateEdgeEqn_TopLeft(e1, { minX + 0.5f, minY + 0.5f, 0 });
     double eVal2 = calculateEdgeEqn_TopLeft(e2, { minX + 0.5f, minY + 0.5f, 0 });
 
+    double barycentric_a = eVal0 / area_full_triangle;
+    double barycentric_b = eVal1 / area_full_triangle;
+    double barycentric_c = eVal2 / area_full_triangle;
+
+    double incrementX_a = e0.a / area_full_triangle;
+    double incrementX_b = e1.a / area_full_triangle;
+    double incrementX_c = e2.a / area_full_triangle;
+
+    double incrementY_a = e0.b / area_full_triangle;
+    double incrementY_b = e1.b / area_full_triangle;
+    double incrementY_c = e2.b / area_full_triangle;
+
     double e0a = e0.a, e1a = e1.a, e2a = e2.a;
     double e0b = e0.b, e1b = e1.b, e2b = e2.b;
+
     int intMaxX = static_cast<int>(maxX);
     int intMaxY = static_cast<int>(maxY);
     int intMinX = static_cast<int>(minX);
@@ -790,53 +805,29 @@ bool GLPbo::render_faceted_shading(glm::dvec3 const& p0, glm::dvec3 const& p1, g
                           0,  1,  0,
                           sin(radians), 0, cos(radians) };
 
-    double scale_val;
+    glm::mat3 inverse_transform = glm::inverse(m_rotation);
 
-    if (current_mdl_iterator->first == "cube")
-    {
-        scale_val = 1.5;
-    }
-    else
-    {
-        scale_val = 2;
-    }
+    double Cx = (m0.x + m1.x + m2.x) * 0.333;
+    double Cy = (m0.y + m1.y + m2.y) * 0.333;
+    double Cz = (m0.z + m1.z + m2.z) * 0.333;
 
-    glm::mat3 scale
-    {
-            scale_val,  0,          0,
-            0,          scale_val,  0,
-            0,          0,          scale_val
-    };
-
-    glm::mat3 model_transform;
-    model_transform = scale * m_rotation;
-    glm::mat3 inverse_transform = glm::inverse(model_transform);
-
-    double Cx = (p0.x + p1.x + p2.x) / 3.0;
-    double Cy = (p0.y + p1.y + p2.y) / 3.0;
-    double Cz = (p0.z + p1.z + p2.z) / 3.0;
     glm::dvec3 centroid = glm::dvec3(Cx, Cy, Cz);
 
-    glm::dvec3 AB = p1 - p0;
-    glm::dvec3 AC = p2 - p0;
-    glm::dvec3 normal = glm::cross(AB, AC);
-    glm::dvec3 outwardNormal = glm::normalize(normal);
+    glm::dvec3 AB = m1 - m0;
+    glm::dvec3 AC = m2 - m0;
+    glm::dvec3 outwardNormal = glm::normalize(glm::cross(AB, AC));
 
-    glm::dvec3 lightpos = CORE10::light_pos;
+    glm::dvec3 lightpos{0.f,0.f,10.f};
     lightpos = inverse_transform * lightpos;
     glm::dvec3 vectorToLight = lightpos - centroid;
     glm::dvec3 normalisedvectorToLight = glm::normalize(vectorToLight);
-    glm::dvec3 referenceVector = glm::dvec3(0, 1, 0);
-
-    double dotProduct = glm::dot(normalisedvectorToLight, referenceVector);
-    double angle = glm::acos(dotProduct);
-    double angleDegrees = glm::degrees(angle);
+  
+    double dotProduct = glm::dot(outwardNormal, normalisedvectorToLight);
    
-    double reflectance{ 1.0};
-    double incomingLight = glm::max(0.0, angleDegrees) * 1.0;
-    double outgoingLight = reflectance * incomingLight;
-
-    GLubyte clr = static_cast<GLubyte>(outgoingLight);
+    double reflectance{1.0};
+    double incomingLight = glm::max(0.0, dotProduct) * reflectance;
+    
+    GLubyte clr = static_cast<GLubyte>(incomingLight*255);
     
     for (int y = intMinY; y < intMaxY; ++y)
     {
@@ -844,21 +835,41 @@ bool GLPbo::render_faceted_shading(glm::dvec3 const& p0, glm::dvec3 const& p1, g
         double HEVal1 = eVal1;
         double HEVal2 = eVal2;
 
+        double HEa = barycentric_a;
+        double HEb = barycentric_b;
+        double HEc = barycentric_c;
+
         for (int x = intMinX; x < intMaxX; ++x)
         {
             if (PointInTriangleOptimized(HEVal0, HEVal1, HEVal2, { x + 0.5, y + 0.5 }, e0.topLeft, e1.topLeft, e2.topLeft))
             {
-                set_pixel(x, y, {clr,clr,clr});
+                double z = HEa * p0.z + HEb * p1.z + HEc * p2.z;
+                z = (z + 1) / 2;
+                int buffer_idx = y * GLPbo::width + x;
+                if (z < depthBuffer[buffer_idx])
+                {
+                    depthBuffer[buffer_idx] = z;
+                    set_pixel(x, y, { clr,clr,clr });
+                }
+                
             }
             // plus 'a' is increment it horizontally aka increment x-axis
             HEVal0 += e0a;
             HEVal1 += e1a;
             HEVal2 += e2a;
+
+            HEa += incrementX_a;
+            HEb += incrementX_b;
+            HEc += incrementX_c;
         }
         // plus 'b' is increment it vertically aka increment y-axis
         eVal0 += e0b;
         eVal1 += e1b;
         eVal2 += e2b;
+
+        barycentric_a += incrementY_a;
+        barycentric_b += incrementY_b;
+        barycentric_c += incrementY_c;
     }
 
     return true;
