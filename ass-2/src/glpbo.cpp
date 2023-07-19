@@ -33,7 +33,6 @@ namespace CORE10
     glm::dvec3 intensity{1.0,1.0,1.0}; // we choose to not store the alpha component
     glm::dvec3 light_pos{ 0.0,0.0,10.0 };
     glm::dvec3 light_pos_rotated=light_pos;
-   
 }
 
 // Definitions for all static data members.
@@ -68,7 +67,7 @@ float light_rad{};
 float light_angle{ 0.f };
 bool  cull = true;
 std::string mode{};
-glm::mat3 m_rotation{};
+//glm::mat3 m_rotation{};
 int cull_counter{};
 int vtx_counter{};
 int tri_counter{};
@@ -282,7 +281,7 @@ void GLPbo::draw_fullwindow_quad() {
     shdr_pgm.UnUse();
     std::string modelName = current_mdl_iterator->first;
 
-    sstr << std::fixed << std::setprecision(2) << "A1 | Benjamin Lee | Model: " << modelName << " | Mode: " << mode << " | Vtx: " << current_mdl_iterator->second.pm.size() << " | Tri: " << current_mdl_iterator->second.tri.size() / 3 << " | Culled: " << cull_counter << " | FPS: " << GLHelper::fps;
+    sstr << std::fixed << std::setprecision(2) << "A2 | Benjamin Lee | Model: " << modelName << " | Mode: " << mode << " | Vertices: " << current_mdl_iterator->second.pm.size() << " | Triangles: " << current_mdl_iterator->second.tri.size() / 3 << " | Culled: " << cull_counter << " | FPS: " << GLHelper::fps;
     glfwSetWindowTitle(GLHelper::ptr_window, sstr.str().c_str());
 }
 
@@ -328,7 +327,6 @@ void GLPbo::init(GLsizei w, GLsizei h) {
     view = glm::lookAt(eye, target, up);
 
     glm::mat4 ortho{};
-    float ar = (float)GLPbo::width / (float)GLPbo::height;
     float aspect_ratio = (float)GLPbo::width / (float)GLPbo::height;
     CORE10::left_plane = aspect_ratio * CORE10::bottom_plane;
     CORE10::right_plane = aspect_ratio * CORE10::top_plane;
@@ -906,7 +904,7 @@ bool GLPbo::render_faceted_shading(glm::dvec3 const& p0, glm::dvec3 const& p1, g
 
         for (int x = intMinX; x < intMaxX; ++x)
         {
-            //if ((y < 0 || y >= height) || (x < 0 || x >= width)) { continue; }
+            if ((y < 0 || y >= height) || (x < 0 || x >= width)) { continue; }
             if (PointInTriangleOptimized(HEVal0, HEVal1, HEVal2, { x + 0.5, y + 0.5 }, e0.topLeft, e1.topLeft, e2.topLeft))
             {
                 double z = HEa * p0.z + HEb * p1.z + HEc * p2.z;
