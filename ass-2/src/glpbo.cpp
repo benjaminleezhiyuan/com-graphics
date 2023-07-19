@@ -111,6 +111,7 @@ void GLPbo::emulate() {
     {
         current_mdl_iterator->second.rotating = !current_mdl_iterator->second.rotating;
         GLHelper::keystateR = GL_FALSE;
+     
     }
 
     if (current_mdl_iterator->second.rotating)
@@ -119,7 +120,6 @@ void GLPbo::emulate() {
         current_mdl_iterator->second.angle = normalizeDegrees(current_mdl_iterator->second.angle + 1);
     }
 
-    //set_clear_color(clear_clr);
     // Mapping pboid to client address ptr_to_pbo
     ptr_to_pbo = static_cast<GLPbo::Color*>(glMapNamedBuffer(pboid, GL_WRITE_ONLY));
     clear_color_buffer();
@@ -492,9 +492,10 @@ void GLPbo::viewport_xform(Model& model) {
 
     model.pd.clear();
     radians = glm::radians(model.angle);
-    glm::mat3 m_rotation{ cos(radians),  0, -sin(radians),
+   
+     glm::mat3 m_rotation = { cos(radians),  0, -sin(radians),
                           0,  1,  0,
-                          sin(radians), 0, cos(radians)};
+                          sin(radians), 0, cos(radians) };
 
     double scale_val; 
 
@@ -513,6 +514,7 @@ void GLPbo::viewport_xform(Model& model) {
             0,          scale_val,  0,
             0,          0,          scale_val
     };
+
     model.ModelTrans = m_rotation;
     glm::mat3 model_trans = scale * m_rotation;
 

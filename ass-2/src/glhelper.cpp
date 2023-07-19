@@ -39,6 +39,8 @@ GLboolean GLHelper::keystateT = GL_FALSE;
 GLboolean GLHelper::keystateA = GL_FALSE;
 GLboolean GLHelper::keystateW = GL_FALSE;
 GLboolean GLHelper::keystateR = GL_FALSE;
+GLboolean GLHelper::keystateX = GL_FALSE;
+GLboolean GLHelper::keystateL = GL_FALSE;
 GLboolean GLHelper::mousestateLeft = GL_FALSE;
 
 
@@ -256,6 +258,15 @@ void GLHelper::key_cb(GLFWwindow* pwin, int key, int scancode, int
         else if (key == GLFW_KEY_R) {
             keystateR = GL_TRUE;
         }
+        else if (key == GLFW_KEY_Z) {
+            keystateZ = GL_TRUE;
+        }
+        else if (key == GLFW_KEY_X) {
+            keystateX = GL_TRUE;
+        }
+        else if (key == GLFW_KEY_L) {
+            keystateL = GL_TRUE;
+        }
      
     }
     else if (GLFW_REPEAT == action) {
@@ -274,6 +285,15 @@ void GLHelper::key_cb(GLFWwindow* pwin, int key, int scancode, int
         }
         else if (key == GLFW_KEY_R) {
             keystateR = GL_FALSE;
+        }
+        else if (key == GLFW_KEY_Z) {
+            keystateZ = GL_FALSE;
+        }
+        else if (key == GLFW_KEY_X) {
+            keystateX = GL_FALSE;
+        }
+        else if (key == GLFW_KEY_L) {
+            keystateL = GL_FALSE;
         }
     }
 }
