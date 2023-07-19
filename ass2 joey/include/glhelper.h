@@ -3,7 +3,7 @@
 @author		pghali@digipen.edu
 
 @co-author	benjaminzhiyuan.lee@digipen.edu
-@date		19/07/2023
+@date		19/06/2023
 
 This file contains the declaration of namespace Helper that encapsulates the
 functionality required to create an OpenGL context using GLFW; use GLEW

@@ -3,7 +3,7 @@
 @author		pghali@digipen.edu
 
 @co-author	benjaminzhiyuan.lee@digipen.edu
-@date		19/06/2023
+@date		19/07/2023
 
 This file implements functionality useful and necessary to build OpenGL
 applications including use of external APIs such as GLFW to create a
@@ -18,7 +18,7 @@ to OpenGL implementations.
 namespace CORE10
 {
     std::vector<std::string> objectName{ "ogre","cube" };
-    std::string textureName{ "ogre.tex" };
+    std::string textureName{ "ogre" };
 
     glm::vec3 cam_pos = glm::vec3(0.f, 0.f, 10.f);
     glm::vec3 target = glm::vec3(0.f, 0.f, 0.f);
@@ -32,6 +32,7 @@ namespace CORE10
 
     glm::dvec3 intensity{1.0,1.0,1.0}; // we choose to not store the alpha component
     glm::dvec3 light_pos{ 0.0,0.0,10.0 };
+    glm::dvec3 light_pos_rotated=light_pos;
    
 }
 
@@ -53,20 +54,29 @@ GLPbo::Model ModelTrans{};
 GLPbo::Model GLPbo::mdl;
 std::unordered_map<std::string, GLPbo::Model> mdl_map;
 std::unordered_map<std::string, GLPbo::Model>::iterator current_mdl_iterator;
-
+bool light_rot = false;
+GLuint tex_hdl{};
+GLuint textureWidth{}, textureHeight{}, bytes_per_texel{};
+std::vector<glm::vec3>textureArray{};
+bool xrotate = false;
+bool yrotate = false;
 bool previous_keystateM = false;
 bool rotating = false;
 float  angle{};
 float radians{};
+float light_rad{};
+float light_angle{ 0.f };
 bool  cull = true;
 std::string mode{};
-
+glm::mat3 m_rotation{};
 int cull_counter{};
 int vtx_counter{};
 int tri_counter{};
 float timesSpeed = 1.0f;
 
 float normalizeDegrees(float degrees);
+bool zAxisRotate = false;
+bool xAxisRotate = false;
 
 /*!***********************************************************************
 \brief Emulates the graphics pipeline by generating images with changing colors.
@@ -81,6 +91,18 @@ Finally, the PBO is unmapepd and the texture image is updated using glTextureSub
 \note This function assumes that the necessary variables and objects (timesSpeed, clear_clr, pboid, ptr_to_pbo, texid, width, and height) have been properly initialized.
 *************************************************************************/
 void GLPbo::emulate() {
+
+    if (GLHelper::keystateZ)
+    {
+        zAxisRotate = !zAxisRotate;
+        GLHelper::keystateZ = GL_FALSE;
+    }
+    if (GLHelper::keystateX)
+    {
+        xAxisRotate = !xAxisRotate;
+        GLHelper::keystateX = GL_FALSE;
+    }
+
     if (GLHelper::keystateM)
     {
         // The 'M' key has just been released.
@@ -100,7 +122,7 @@ void GLPbo::emulate() {
     if (GLHelper::keystateW)
     {
         current_mdl.Tasking = static_cast<GLPbo::Model::task>(static_cast<int>(current_mdl.Tasking) + 1);
-        if (static_cast<int>(current_mdl.Tasking) == 4)
+        if (static_cast<int>(current_mdl.Tasking) == 7)
         {
             current_mdl.Tasking = GLPbo::Model::task::wireframe;
         }
@@ -116,8 +138,35 @@ void GLPbo::emulate() {
 
     if (current_mdl_iterator->second.rotating)
     {
-        //current_mdl_iterator->second.angle += 1;
+        
         current_mdl_iterator->second.angle = normalizeDegrees(current_mdl_iterator->second.angle + 1);
+    }
+
+    if (GLHelper::keystateL)
+    {
+        light_rot = !light_rot;
+        GLHelper::keystateL = GL_FALSE;
+    }
+
+    if (light_rot)
+    {
+        glm::vec3 y_axis = { 0,1,0 };
+        float rotspeed = 3.f;
+        light_angle += rotspeed;
+        light_angle = normalizeDegrees(light_angle);
+        glm::mat4 y_axis4x4 = glm::rotate(glm::radians(light_angle), y_axis);
+        CORE10::light_pos_rotated = y_axis4x4 * glm::vec4(CORE10::light_pos, 10);
+    }
+
+    if (GLHelper::keystateX)
+    {
+        xrotate = !xrotate;
+        GLHelper::keystateX = GL_FALSE;
+    }
+    if (GLHelper::keystateZ)
+    {
+        yrotate = !yrotate;
+        GLHelper::keystateX = GL_FALSE;
     }
 
     // Mapping pboid to client address ptr_to_pbo
@@ -158,13 +207,31 @@ void GLPbo::emulate() {
                 mode = "Faceted";
                 break;
             case GLPbo::Model::task::shaded:
-                render_smooth_shading(current_mdl.pd[idx1], current_mdl.pd[idx2], current_mdl.pd[idx3], 
-                    current_mdl.pm[idx1], current_mdl.pm[idx2], current_mdl.pm[idx3], 
+                render_smooth_shading(current_mdl.pd[idx1], current_mdl.pd[idx2], current_mdl.pd[idx3],
+                    current_mdl.pm[idx1], current_mdl.pm[idx2], current_mdl.pm[idx3],
                     current_mdl.nml[idx1], current_mdl.nml[idx2], current_mdl.nml[idx3]);
                 mode = "Shaded";
                 break;
+
+            case GLPbo::Model::task::textured:
+                render_texture_map(current_mdl.pd[idx1], current_mdl.pd[idx2], current_mdl.pd[idx3],
+                    current_mdl.tex[idx1], current_mdl.tex[idx2], current_mdl.tex[idx3]);
+                mode = "Textured";
+                break;
+            case GLPbo::Model::task::faceted_tex:
+                render_faceted_texture(current_mdl.pd[idx1], current_mdl.pd[idx2], current_mdl.pd[idx3], current_mdl.pm[idx1], current_mdl.pm[idx2], current_mdl.pm[idx3], current_mdl.tex[idx1], current_mdl.tex[idx2], current_mdl.tex[idx3]);
+                mode = "Textured/Faceted";
+                break;
+            case GLPbo::Model::task::smooth_tex:
+                render_smooth_texture(current_mdl.pd[idx1], current_mdl.pd[idx2], current_mdl.pd[idx3], 
+                    current_mdl.pm[idx1], current_mdl.pm[idx2], current_mdl.pm[idx3], 
+                    current_mdl.nml[idx1], current_mdl.nml[idx2], current_mdl.nml[idx3], 
+                    current_mdl.tex[idx1], current_mdl.tex[idx2], current_mdl.tex[idx3]);
+                mode = "Textured/Shaded";
+                break;
             }
         }
+        
         else if (cull)
         {
             cull_counter++;
@@ -241,8 +308,9 @@ void GLPbo::init(GLsizei w, GLsizei h) {
 
     pixel_cnt = w * h;
     byte_cnt = pixel_cnt * 4;
-
     
+    setup_texobj(CORE10::textureName);
+
     depthBuffer = new double[pixel_cnt];
 
     glm::mat4 view_port{
@@ -492,11 +560,26 @@ void GLPbo::viewport_xform(Model& model) {
 
     model.pd.clear();
     radians = glm::radians(model.angle);
+    light_rad = glm::radians(light_angle);
    
      glm::mat3 m_rotation = { cos(radians),  0, -sin(radians),
                           0,  1,  0,
                           sin(radians), 0, cos(radians) };
 
+     if (zAxisRotate)
+     {
+         m_rotation = glm::rotate(radians, glm::normalize(glm::vec3(0, 1, 1)));
+
+     }
+     if (xAxisRotate)
+     {
+         m_rotation = glm::rotate(radians, glm::normalize(glm::vec3(1, 1, 0)));
+
+     }
+     if (xAxisRotate && zAxisRotate)
+     {
+         m_rotation = glm::rotate(radians, glm::normalize(glm::vec3(1, 1, 1)));
+     }
     double scale_val; 
 
     if (current_mdl_iterator->first == "cube")
@@ -516,6 +599,7 @@ void GLPbo::viewport_xform(Model& model) {
     };
 
     model.ModelTrans = m_rotation;
+
     glm::mat3 model_trans = scale * m_rotation;
 
     for (size_t i = 0; i < model.pm.size(); i++)
@@ -528,7 +612,6 @@ void GLPbo::viewport_xform(Model& model) {
 
         // Apply the viewport transformation
         glm::vec4 transformed = view_chain * rotated4;
-       // model.pm[i].z = (model.pm[i].z + 1) / 2;
         model.pd.push_back(glm::vec3(transformed));
     }
 }
@@ -731,23 +814,22 @@ double calculateEdgeEqn_TopLeft(EdgeEqn& E, glm::dvec3 random_point) {
 }
 
 /**
-@brief Renders a filled triangle using the scanline algorithm.
-This function renders a filled triangle using the scanline algorithm.
-It takes three vertices of the triangle (p0, p1, p2) and a color (clr) as input.
-The function computes the edge equations of the triangle's three sides using the computeEdgeEqn function.
-It then determines the bounding box of the triangle to define the scanline range.
-For each scanline within the bounding box, the function calculates the evaluation values of the edge equations
-with the TopLeft tie breaker at the midpoint of each pixel on the scanline.
-The PointInTriangleOptimized function is used to check if each pixel falls within the triangle.
-If a pixel is inside the triangle, the set_pixel function is called to set the corresponding pixel color.
-The function returns true upon successful rendering.
-
-@param p0 The first vertex of the triangle.
-@param p1 The second vertex of the triangle.
-@param p2 The third vertex of the triangle.
-@param clr The color of the triangle.
-@return True if the triangle was rendered successfully, false otherwise.
-*/
+ * @brief Renders a faceted shading for a triangle defined by its vertices and corresponding normals.
+ *
+ * This function computes the faceted shading for a triangle specified by three vertices (p0, p1, p2)
+ * and their corresponding vertex normals (m0, m1, m2). The faceted shading is computed based on the
+ * provided light position (CORE10::light_pos) and a given reflectance value. The computed shading is
+ * applied to the triangle and rendered into a buffer using barycentric interpolation.
+ *
+ * @param p0 The first vertex of the triangle.
+ * @param p1 The second vertex of the triangle.
+ * @param p2 The third vertex of the triangle.
+ * @param m0 The normal vector at vertex p0.
+ * @param m1 The normal vector at vertex p1.
+ * @param m2 The normal vector at vertex p2.
+ *
+ * @return Always returns true, indicating that the rendering was successful.
+ */
 bool GLPbo::render_faceted_shading(glm::dvec3 const& p0, glm::dvec3 const& p1, glm::dvec3 const& p2, glm::dvec3 const& m0, glm::dvec3 const& m1, glm::dvec3 const& m2) {
     EdgeEqn e0, e1, e2;
 
@@ -800,17 +882,17 @@ bool GLPbo::render_faceted_shading(glm::dvec3 const& p0, glm::dvec3 const& p1, g
     glm::dvec3 AC = m2 - m0;
     glm::dvec3 outwardNormal = glm::normalize(glm::cross(AB, AC));
 
-    glm::dvec3 lightpos = CORE10::light_pos;
+    glm::dvec3 lightpos = CORE10::light_pos_rotated;
     lightpos = inverse_transform * lightpos;
     glm::dvec3 vectorToLight = lightpos - centroid;
     glm::dvec3 normalisedvectorToLight = glm::normalize(vectorToLight);
   
     double dotProduct = glm::dot(outwardNormal, normalisedvectorToLight);
    
-    double reflectance{1.0};
-    double incomingLight = glm::max(0.0, dotProduct) * reflectance;
+    glm::dvec3 reflectance{1.0,1.0,1.0};
+    glm::dvec3 incomingLight = glm::max(0.0, dotProduct) * reflectance * CORE10::intensity;
     
-    GLubyte clr = static_cast<GLubyte>(incomingLight*255);
+    GLubyte clr = static_cast<GLubyte>(incomingLight.x*255);
     
     for (int y = intMinY; y < intMaxY; ++y)
     {
@@ -824,6 +906,7 @@ bool GLPbo::render_faceted_shading(glm::dvec3 const& p0, glm::dvec3 const& p1, g
 
         for (int x = intMinX; x < intMaxX; ++x)
         {
+            //if ((y < 0 || y >= height) || (x < 0 || x >= width)) { continue; }
             if (PointInTriangleOptimized(HEVal0, HEVal1, HEVal2, { x + 0.5, y + 0.5 }, e0.topLeft, e1.topLeft, e2.topLeft))
             {
                 double z = HEa * p0.z + HEb * p1.z + HEc * p2.z;
@@ -859,26 +942,18 @@ bool GLPbo::render_faceted_shading(glm::dvec3 const& p0, glm::dvec3 const& p1, g
 }
 
 /**
-@brief Renders a filled triangle using the scanline algorithm with interpolated colors.
-This function renders a filled triangle using the scanline algorithm with interpolated colors.
-It takes three vertices of the triangle (p0, p1, p2) and the corresponding vertex colors (c0, c1, c2) as input.
-The function computes the edge equations of the triangle's three sides using the computeEdgeEqn function.
-It then determines the bounding box of the triangle to define the scanline range.
-For each scanline within the bounding box, the function calculates the evaluation values of the edge equations
-with the TopLeft tie breaker at the midpoint of each pixel on the scanline.
-The PointInTriangleOptimized function is used to check if each pixel falls within the triangle.
-If a pixel is inside the triangle, the color is interpolated using the barycentric coordinates of the pixel
-and the vertex colors. The set_pixel function is called to set the corresponding pixel color.
-The function returns true upon successful rendering.
-
-@param p0 The first vertex of the triangle.
-@param p1 The second vertex of the triangle.
-@param p2 The third vertex of the triangle.
-@param c0 The color at the first vertex.
-@param c1 The color at the second vertex.
-@param c2 The color at the third vertex.
-@return True if the triangle was rendered successfully, false otherwise.
-*/
+ * @brief Renders a shadow map for a triangle to be used in shadow mapping.
+ *
+ * This function computes a shadow map for a triangle specified by its three vertices (p0, p1, p2).
+ * The shadow map is created by rendering the triangle from the light's perspective into a depth buffer.
+ * The depth buffer is used later for shadow mapping to determine whether a point is in shadow or not.
+ *
+ * @param p0 The first vertex of the triangle.
+ * @param p1 The second vertex of the triangle.
+ * @param p2 The third vertex of the triangle.
+ *
+ * @return Always returns true, indicating that the shadow map rendering was successful.
+ */
 bool GLPbo::render_shadow_map(glm::dvec3 const& p0, glm::dvec3 const& p1, glm::dvec3 const& p2) {
 
     EdgeEqn e0, e1, e2;
@@ -933,12 +1008,13 @@ bool GLPbo::render_shadow_map(glm::dvec3 const& p0, glm::dvec3 const& p1, glm::d
 
         for (int x = intMinX; x < intMaxX; ++x)
         {
+            if ((y < 0 || y >= height) || (x < 0 || x >= width)) { continue; }
             if (PointInTriangleOptimized(HEVal0, HEVal1, HEVal2, { x + 0.5, y + 0.5 }, e0.topLeft, e1.topLeft, e2.topLeft))
             {
                 double z = HEa * p0.z + HEb * p1.z + HEc * p2.z;
                 z = (z + 1) / 2;
                 int buffer_idx = y * GLPbo::width + x;
-                if (z < depthBuffer[buffer_idx])
+                if (z <= depthBuffer[buffer_idx])
                 {
                     depthBuffer[buffer_idx] = z;
                     set_pixel(x, y, { static_cast<GLubyte>(z * 255.0),static_cast<GLubyte>(z * 255.0),static_cast<GLubyte>(z * 255.0) });
@@ -964,11 +1040,32 @@ bool GLPbo::render_shadow_map(glm::dvec3 const& p0, glm::dvec3 const& p1, glm::d
     return true;
 }
 
+/**
+ * @brief Renders smooth shading for a triangle using Phong shading model.
+ *
+ * This function computes the smooth shading for a triangle specified by its three vertices (p0, p1, p2)
+ * and their corresponding vertex normals (n0, n1, n2). The smooth shading is computed based on the
+ * provided light position (CORE10::light_pos) and intensity (CORE10::intensity). The Phong shading model
+ * is used to calculate the intensity of the triangle at each pixel, taking into account the normal vectors
+ * and light source position.
+ *
+ * @param p0 The first vertex of the triangle.
+ * @param p1 The second vertex of the triangle.
+ * @param p2 The third vertex of the triangle.
+ * @param m0 The corresponding position of the first vertex in model space.
+ * @param m1 The corresponding position of the second vertex in model space.
+ * @param m2 The corresponding position of the third vertex in model space.
+ * @param n0 The normal vector at vertex p0.
+ * @param n1 The normal vector at vertex p1.
+ * @param n2 The normal vector at vertex p2.
+ *
+ * @return Always returns true, indicating that the rendering of smooth shading was successful.
+ */
 bool GLPbo::render_smooth_shading(glm::dvec3 const& p0, glm::dvec3 const& p1, glm::dvec3 const& p2, glm::vec3 const& m0, glm::vec3 const& m1, glm::vec3 const& m2, 
     glm::dvec3 const& n0, glm::dvec3 const& n1, glm::dvec3 const& n2) {
  
     //pm0 to lightsource pos
-    glm::dvec3 lightsource = CORE10::light_pos;
+    glm::dvec3 lightsource = CORE10::light_pos_rotated;
     glm::dvec3 pm0 = glm::inverse(current_mdl_iterator->second.ModelTrans) * lightsource - m0;
     glm::dvec3 pm1 = glm::inverse(current_mdl_iterator->second.ModelTrans) * lightsource - m1;
     glm::dvec3 pm2 = glm::inverse(current_mdl_iterator->second.ModelTrans) * lightsource - m2;
@@ -1032,6 +1129,7 @@ bool GLPbo::render_smooth_shading(glm::dvec3 const& p0, glm::dvec3 const& p1, gl
 
         for (int x = intMinX; x < intMaxX; ++x)
         {
+            if ((y < 0 || y >= height) || (x < 0 || x >= width)) { continue; }
             if (PointInTriangleOptimized(HEVal0, HEVal1, HEVal2, { x + 0.5, y + 0.5 }, e0.topLeft, e1.topLeft, e2.topLeft))
             {
                 double z = HEa * p0.z + HEb * p1.z + HEc * p2.z;
@@ -1044,6 +1142,432 @@ bool GLPbo::render_smooth_shading(glm::dvec3 const& p0, glm::dvec3 const& p1, gl
                 depthBuffer[buffer_idx] = z;
                 set_pixel(x, y, { static_cast<GLubyte>(clr.x*255),static_cast<GLubyte>(clr.y*255),static_cast<GLubyte>(clr.z*255) });
                 }
+            }
+            HEVal0 += e0a;
+            HEVal1 += e1a;
+            HEVal2 += e2a;
+
+            HEa += incrementX_a;
+            HEb += incrementX_b;
+            HEc += incrementX_c;
+        }
+        eVal0 += e0b;
+        eVal1 += e1b;
+        eVal2 += e2b;
+
+        barycentric_a += incrementY_a;
+        barycentric_b += incrementY_b;
+        barycentric_c += incrementY_c;
+
+    }
+    return true;
+}
+
+/**
+ * @brief Sets up a texture object using data from a binary file.
+ *
+ * This function reads texture data from a binary file specified by the given `pathname`
+ * and sets up a texture object (texobj) with the loaded data. The texture data in the file
+ * is assumed to have a width and height of 256 texels and use a 32-bit RGBA texel format.
+ *
+ * @param pathname The path to the binary file containing texture data.
+ */
+void GLPbo::setup_texobj(std::string pathname) {
+
+    std::string file = "../images/" + pathname + ".tex";
+    std::ifstream ifs{ file, std::ios::binary };
+    if (!ifs) {
+        std::cout << "ERROR: Unable to open scene file: "
+            << pathname << "\n";
+        exit(EXIT_FAILURE);
+    }
+    //ifs.seekg(0, std::ios::end);
+    ifs.seekg(0, std::ios::beg);
+    // remember all our images have width and height of 256 texels and
+    // use 32-bit RGBA texel format
+    //GLuint width, height, bytes_per_texel;
+    ifs.read(reinterpret_cast<char*>(&textureWidth), sizeof(int));
+    ifs.read(reinterpret_cast<char*>(&textureHeight), sizeof(int));
+    ifs.read(reinterpret_cast<char*>(&bytes_per_texel), sizeof(int));
+
+    if (!ifs) {
+        std::cout << "ERROR: Failed to read file: "
+            << pathname << "\n";
+        exit(EXIT_FAILURE);
+    }
+
+    for (GLuint i = 0; i < textureWidth * textureHeight * bytes_per_texel; ++i)
+    {
+        unsigned char r{}, g{}, b{};
+        ifs.read(reinterpret_cast<char*>(&r), 1);
+        ifs.read(reinterpret_cast<char*>(&g), 1);
+        ifs.read(reinterpret_cast<char*>(&b), 1);
+
+        textureArray.push_back(glm::vec3(r, g, b));
+    }
+    ifs.close();
+
+}
+
+/**
+ * @brief Renders a texture map onto a triangle using barycentric interpolation.
+ *
+ * This function renders a texture map onto a triangle specified by its three vertices (p0, p1, p2) and
+ * their corresponding texture coordinates (tx0, tx1, tx2). The texture map is applied to the triangle
+ * using barycentric interpolation to calculate the texture position for each pixel inside the triangle.
+ * The texture data is retrieved from a textureArray, and the depth buffer is used to ensure correct depth
+ * testing and visibility of the textured pixels.
+ *
+ * @param p0 The first vertex of the triangle.
+ * @param p1 The second vertex of the triangle.
+ * @param p2 The third vertex of the triangle.
+ * @param tx0 The texture coordinates at vertex p0.
+ * @param tx1 The texture coordinates at vertex p1.
+ * @param tx2 The texture coordinates at vertex p2.
+ *
+ * @return Always returns true, indicating that the rendering of the textured triangle was successful.
+ */
+bool GLPbo::render_texture_map(glm::dvec3 const& p0, glm::dvec3 const& p1, glm::dvec3 const& p2,
+    glm::dvec2 const& tx0, glm::dvec2 const& tx1, glm::dvec2 const& tx2)
+{
+    EdgeEqn e0, e1, e2;
+    // Edge equation of the 3 lines0
+    computeEdgeEqn(p1, p2, e0);
+    computeEdgeEqn(p2, p0, e1);
+    computeEdgeEqn(p0, p1, e2);
+
+    double area_full_triangle = ((p1.x - p0.x) * (p2.y - p0.y) - (p2.x - p0.x) * (p1.y - p0.y));
+
+    // Bounding box of the triangle
+    double minX = floor(std::min({ p0.x, p1.x, p2.x }));
+    double maxX = ceil(std::max({ p0.x, p1.x, p2.x }));
+    double minY = floor(std::min({ p0.y, p1.y, p2.y }));
+    double maxY = ceil(std::max({ p0.y, p1.y, p2.y }));
+
+    double eval0 = calculateEdgeEqn_TopLeft(e0, { minX + 0.5, minY + 0.5, 0 });
+    double eval1 = calculateEdgeEqn_TopLeft(e1, { minX + 0.5, minY + 0.5, 0 });
+    double eval2 = calculateEdgeEqn_TopLeft(e2, { minX + 0.5, minY + 0.5, 0 });
+   
+
+
+    double barycentricA = eval0 / area_full_triangle;
+    double barycentricB = eval1 / area_full_triangle;
+    double barycentricC = 1 - barycentricA - barycentricB;
+
+    double incXA = e0.a / area_full_triangle;
+    double incXB = e1.a / area_full_triangle;
+    double incXC = e2.a / area_full_triangle;
+
+    double incYA = e0.b / area_full_triangle;
+    double incYB = e1.b / area_full_triangle;
+    double incYC = e2.b / area_full_triangle;
+
+
+    double e0a = e0.a, e1a = e1.a, e2a = e2.a;
+    double e0b = e0.b, e1b = e1.b, e2b = e2.b;
+    int intMaxX = static_cast<int>(maxX);
+    int intMaxY = static_cast<int>(maxY);
+    int intMinX = static_cast<int>(minX);
+    int intMinY = static_cast<int>(minY);
+
+
+    for (int y = intMinY; y < intMaxY; ++y) {
+        double HEVal0 = eval0;
+        double HEVal1 = eval1;
+        double HEVal2 = eval2;
+
+        double HEa = barycentricA;
+        double HEb = barycentricB;
+        double HEc = barycentricC;
+
+        for (int x = intMinX; x < intMaxX; ++x)
+        {
+            if ((y < 0 || y >= height) || (x < 0 || x >= width)) { continue; }
+            if (PointInTriangleOptimized(HEVal0, HEVal1, HEVal2, { x + 0.5, y + 0.5 }, e0.topLeft, e1.topLeft, e2.topLeft))
+            {
+                glm::dvec2 texPos = (HEVal0 * tx0 + HEVal1 * tx1 + HEVal2 * tx2) / area_full_triangle;
+                int buffer_idx = y * GLPbo::width + x;  // Adjusted buffer index calculation
+                double z = HEa * p0.z + HEb * p1.z + HEc * p2.z;
+                GLuint texX = static_cast<int>(std::clamp(texPos.x, 0.0, 1.0) * (textureHeight - 1));
+                GLuint texY = static_cast<int>(std::clamp(texPos.y, 0.0, 1.0) * (textureWidth - 1));
+                if (z < depthBuffer[buffer_idx] && texX > 0 && texY > 0 && texX < textureHeight && texY < textureWidth)
+                {
+                    int textureIndex = texY * textureWidth + texX;
+                    glm::vec3 texClr = textureArray[textureIndex];
+                    depthBuffer[buffer_idx] = z;
+                    set_pixel(x, y, { static_cast<GLubyte>(texClr.x),static_cast<GLubyte>(texClr.y),static_cast<GLubyte>(texClr.z) });
+                }
+            }
+            HEVal0 += e0a;
+            HEVal1 += e1a;
+            HEVal2 += e2a;
+
+            HEa += incXA;
+            HEb += incXB;
+            HEc += incXC;
+        }
+        eval0 += e0b;
+        eval1 += e1b;
+        eval2 += e2b;
+
+        barycentricA += incYA;
+        barycentricB += incYB;
+        barycentricC += incYC;
+
+    }
+    return true;
+}
+
+/**
+ * @brief Renders a faceted texture map with shading on a triangle using barycentric interpolation.
+ *
+ * This function renders a faceted texture map on a triangle specified by its three vertices (p0, p1, p2) and
+ * their corresponding texture coordinates (tx0, tx1, tx2). The texture map is applied to the triangle using
+ * barycentric interpolation to calculate the texture position for each pixel inside the triangle. Additionally,
+ * the function performs shading calculations based on the light position, intensity, and the triangle's surface normal
+ * to create a faceted shading effect.
+ *
+ * @param p0 The first vertex of the triangle.
+ * @param p1 The second vertex of the triangle.
+ * @param p2 The third vertex of the triangle.
+ * @param m0 The position of the first vertex in model space.
+ * @param m1 The position of the second vertex in model space.
+ * @param m2 The position of the third vertex in model space.
+ * @param tx0 The texture coordinates at vertex p0.
+ * @param tx1 The texture coordinates at vertex p1.
+ * @param tx2 The texture coordinates at vertex p2.
+ *
+ * @return Always returns true, indicating that the rendering of the faceted textured triangle was successful.
+ */
+bool GLPbo::render_faceted_texture(glm::dvec3 const& p0, glm::dvec3 const& p1, glm::dvec3 const& p2, 
+    glm::dvec3 const& m0, glm::dvec3 const& m1, glm::dvec3 const& m2, 
+    glm::dvec2 const& tx0, glm::dvec2 const& tx1, glm::dvec2 const& tx2)
+{
+    EdgeEqn e0, e1, e2;
+
+    // Edge equation of the 3 lines
+    computeEdgeEqn(p1, p2, e0);
+    computeEdgeEqn(p2, p0, e1);
+    computeEdgeEqn(p0, p1, e2);
+
+    double area_full_triangle = ((p1.x - p0.x) * (p2.y - p0.y) - (p2.x - p0.x) * (p1.y - p0.y));
+
+    // Bounding box of the triangle
+    GLdouble minX = floor(std::min({ p0.x, p1.x, p2.x }));
+    GLdouble maxX = ceil(std::max({ p0.x, p1.x, p2.x }));
+    GLdouble minY = floor(std::min({ p0.y, p1.y, p2.y }));
+    GLdouble maxY = ceil(std::max({ p0.y, p1.y, p2.y }));
+
+    double eVal0 = calculateEdgeEqn_TopLeft(e0, { minX + 0.5f, minY + 0.5f, 0 });
+    double eVal1 = calculateEdgeEqn_TopLeft(e1, { minX + 0.5f, minY + 0.5f, 0 });
+    double eVal2 = calculateEdgeEqn_TopLeft(e2, { minX + 0.5f, minY + 0.5f, 0 });
+
+    double barycentric_a = eVal0 / area_full_triangle;
+    double barycentric_b = eVal1 / area_full_triangle;
+    double barycentric_c = eVal2 / area_full_triangle;
+
+    double incrementX_a = e0.a / area_full_triangle;
+    double incrementX_b = e1.a / area_full_triangle;
+    double incrementX_c = e2.a / area_full_triangle;
+
+    double incrementY_a = e0.b / area_full_triangle;
+    double incrementY_b = e1.b / area_full_triangle;
+    double incrementY_c = e2.b / area_full_triangle;
+
+    double e0a = e0.a, e1a = e1.a, e2a = e2.a;
+    double e0b = e0.b, e1b = e1.b, e2b = e2.b;
+
+    int intMaxX = static_cast<int>(maxX);
+    int intMaxY = static_cast<int>(maxY);
+    int intMinX = static_cast<int>(minX);
+    int intMinY = static_cast<int>(minY);
+
+    glm::mat3 inverse_transform = glm::inverse(current_mdl_iterator->second.ModelTrans);
+
+    double Cx = (m0.x + m1.x + m2.x) * 0.333;
+    double Cy = (m0.y + m1.y + m2.y) * 0.333;
+    double Cz = (m0.z + m1.z + m2.z) * 0.333;
+
+    glm::dvec3 centroid = glm::dvec3(Cx, Cy, Cz);
+
+    glm::dvec3 AB = m1 - m0;
+    glm::dvec3 AC = m2 - m0;
+    glm::dvec3 outwardNormal = glm::normalize(glm::cross(AB, AC));
+
+    glm::dvec3 lightpos = CORE10::light_pos_rotated;
+    lightpos = inverse_transform * lightpos;
+    glm::dvec3 vectorToLight = lightpos - centroid;
+    glm::dvec3 normalisedvectorToLight = glm::normalize(vectorToLight);
+
+    double dotProduct = glm::dot(outwardNormal, normalisedvectorToLight);
+   
+    glm::dvec3 incomingLight = glm::max(0.0, dotProduct) * CORE10::intensity;
+
+    for (int y = intMinY; y < intMaxY; ++y)
+    {
+        double HEVal0 = eVal0;
+        double HEVal1 = eVal1;
+        double HEVal2 = eVal2;
+
+        double HEa = barycentric_a;
+        double HEb = barycentric_b;
+        double HEc = barycentric_c;
+
+        for (int x = intMinX; x < intMaxX; ++x)
+        {
+            if ((y < 0 || y >= height) || (x < 0 || x >= width)) { continue; }
+            if (PointInTriangleOptimized(HEVal0, HEVal1, HEVal2, { x + 0.5, y + 0.5 }, e0.topLeft, e1.topLeft, e2.topLeft))
+            {
+                glm::dvec2 texPos = (HEVal0 * tx0 + HEVal1 * tx1 + HEVal2 * tx2) / area_full_triangle;
+                double z = HEa * p0.z + HEb * p1.z + HEc * p2.z;
+                z = (z + 1) / 2;
+                int buffer_idx = y * GLPbo::width + x;
+                int texX = static_cast<int>(std::clamp(texPos.x, 0.0, 1.0) * (textureHeight - 1));
+                int texY = static_cast<int>(std::clamp(texPos.y, 0.0, 1.0) * (textureWidth - 1));
+                if (z < depthBuffer[buffer_idx])
+                {
+                    int textureIndex = texY * textureWidth + texX;
+                    glm::vec3 texClr = textureArray[textureIndex];
+                    depthBuffer[buffer_idx] = z;
+                    set_pixel(x, y, { static_cast<GLubyte>(texClr.x*incomingLight.x),static_cast<GLubyte>(texClr.y* incomingLight.y),static_cast<GLubyte>(texClr.z* incomingLight.z) });
+                }
+
+            }
+            // plus 'a' is increment it horizontally aka increment x-axis
+            HEVal0 += e0a;
+            HEVal1 += e1a;
+            HEVal2 += e2a;
+
+            HEa += incrementX_a;
+            HEb += incrementX_b;
+            HEc += incrementX_c;
+        }
+        // plus 'b' is increment it vertically aka increment y-axis
+        eVal0 += e0b;
+        eVal1 += e1b;
+        eVal2 += e2b;
+
+        barycentric_a += incrementY_a;
+        barycentric_b += incrementY_b;
+        barycentric_c += incrementY_c;
+    }
+
+    return true;
+}
+
+/**
+ * @brief Renders a smoothly shaded texture map on a triangle using barycentric interpolation.
+ *
+ * This function renders a smoothly shaded texture map on a triangle specified by its three vertices (p0, p1, p2) and
+ * their corresponding vertex normals (n0, n1, n2), and texture coordinates (tx0, tx1, tx2). The texture map is applied
+ * to the triangle using barycentric interpolation to calculate the texture position for each pixel inside the triangle.
+ * Additionally, the function performs shading calculations based on the light position, intensity, and the vertex normals
+ * to create a smoothly shaded effect on the textured triangle.
+ *
+ * @param p0 The first vertex of the triangle.
+ * @param p1 The second vertex of the triangle.
+ * @param p2 The third vertex of the triangle.
+ * @param m0 The position of the first vertex in model space.
+ * @param m1 The position of the second vertex in model space.
+ * @param m2 The position of the third vertex in model space.
+ * @param n0 The vertex normal at vertex p0.
+ * @param n1 The vertex normal at vertex p1.
+ * @param n2 The vertex normal at vertex p2.
+ * @param tx0 The texture coordinates at vertex p0.
+ * @param tx1 The texture coordinates at vertex p1.
+ * @param tx2 The texture coordinates at vertex p2.
+ *
+ * @return Always returns true, indicating that the rendering of the smoothly shaded textured triangle was successful.
+ */
+bool GLPbo::render_smooth_texture(glm::dvec3 const& p0, glm::dvec3 const& p1, glm::dvec3 const& p2, 
+    glm::vec3 const& m0, glm::vec3 const& m1, glm::vec3 const& m2, 
+    glm::dvec3 const& n0, glm::dvec3 const& n1, glm::dvec3 const& n2, 
+    glm::dvec2 const& tx0, glm::dvec2 const& tx1, glm::dvec2 const& tx2)
+{
+    //pm0 to lightsource pos
+    glm::dvec3 lightsource = CORE10::light_pos_rotated;
+    glm::dvec3 pm0 = glm::inverse(current_mdl_iterator->second.ModelTrans) * lightsource - m0;
+    glm::dvec3 pm1 = glm::inverse(current_mdl_iterator->second.ModelTrans) * lightsource - m1;
+    glm::dvec3 pm2 = glm::inverse(current_mdl_iterator->second.ModelTrans) * lightsource - m2;
+    pm0 = glm::normalize(pm0);
+    pm1 = glm::normalize(pm1);
+    pm2 = glm::normalize(pm2);
+    glm::dvec3 intensity = CORE10::intensity;
+    glm::dvec3 c0 = intensity * glm::max(0.0, glm::dot(n0, pm0));
+    glm::dvec3 c1 = intensity * glm::max(0.0, glm::dot(n1, pm1));
+    glm::dvec3 c2 = intensity * glm::max(0.0, glm::dot(n2, pm2));
+
+    EdgeEqn e0, e1, e2;
+
+    // E1dge equation of the 3 lines0
+    computeEdgeEqn(p1, p2, e0);
+    computeEdgeEqn(p2, p0, e1);
+    computeEdgeEqn(p0, p1, e2);
+
+    double area_full_triangle = ((p1.x - p0.x) * (p2.y - p0.y) - (p2.x - p0.x) * (p1.y - p0.y));
+
+    // Bounding box of the triangle
+    GLdouble minX = floor(std::min({ p0.x, p1.x, p2.x }));
+    GLdouble maxX = ceil(std::max({ p0.x, p1.x, p2.x }));
+    GLdouble minY = floor(std::min({ p0.y, p1.y, p2.y }));
+    GLdouble maxY = ceil(std::max({ p0.y, p1.y, p2.y }));
+
+    double eVal0 = calculateEdgeEqn_TopLeft(e0, { minX + 0.5f, minY + 0.5f, 0 });
+    double eVal1 = calculateEdgeEqn_TopLeft(e1, { minX + 0.5f, minY + 0.5f, 0 });
+    double eVal2 = calculateEdgeEqn_TopLeft(e2, { minX + 0.5f, minY + 0.5f, 0 });
+
+    double barycentric_a = eVal0 / area_full_triangle;
+    double barycentric_b = eVal1 / area_full_triangle;
+    double barycentric_c = eVal2 / area_full_triangle;
+
+    double incrementX_a = e0.a / area_full_triangle;
+    double incrementX_b = e1.a / area_full_triangle;
+    double incrementX_c = e2.a / area_full_triangle;
+
+    double incrementY_a = e0.b / area_full_triangle;
+    double incrementY_b = e1.b / area_full_triangle;
+    double incrementY_c = e2.b / area_full_triangle;
+
+
+    double e0a = e0.a, e1a = e1.a, e2a = e2.a;
+    double e0b = e0.b, e1b = e1.b, e2b = e2.b;
+
+    int intMaxX = static_cast<int>(maxX);
+    int intMaxY = static_cast<int>(maxY);
+    int intMinX = static_cast<int>(minX);
+    int intMinY = static_cast<int>(minY);
+
+
+    for (int y = intMinY; y < intMaxY; ++y) {
+        double HEVal0 = eVal0;
+        double HEVal1 = eVal1;
+        double HEVal2 = eVal2;
+
+        double HEa = barycentric_a;
+        double HEb = barycentric_b;
+        double HEc = barycentric_c;
+
+        for (int x = intMinX; x < intMaxX; ++x)
+        {
+            if ((y < 0 || y >= height) || (x < 0 || x >= width)) { continue; }
+            if (PointInTriangleOptimized(HEVal0, HEVal1, HEVal2, { x + 0.5, y + 0.5 }, e0.topLeft, e1.topLeft, e2.topLeft))
+            {
+                glm::dvec2 texPos = (HEVal0 * tx0 + HEVal1 * tx1 + HEVal2 * tx2) / area_full_triangle;
+                int texX = static_cast<int>(std::clamp(texPos.x, 0.0, 1.0) * (textureHeight - 1));
+                int texY = static_cast<int>(std::clamp(texPos.y, 0.0, 1.0) * (textureWidth - 1));
+                double z = HEa * p0.z + HEb * p1.z + HEc * p2.z;
+                z = (z + 1) / 2;
+                int buffer_idx = y * GLPbo::width + x;
+
+                if (z < depthBuffer[buffer_idx])
+                {
+                    glm::dvec3 clr = HEa * c0 + HEb * c1 + HEc * c2;
+                    int textureIndex = texY * textureWidth + texX;
+                    glm::vec3 texClr = textureArray[textureIndex];
+                    depthBuffer[buffer_idx] = z;
+                    set_pixel(x, y, { static_cast<GLubyte>(clr.x * texClr.x),static_cast<GLubyte>(clr.y * texClr.y),static_cast<GLubyte>(clr.z * texClr.z) });
+                }
+
             }
             HEVal0 += e0a;
             HEVal1 += e1a;

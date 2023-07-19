@@ -4,7 +4,7 @@
 @date    10/11/2016
 
 @co-author	benjaminzhiyuan.lee@digipen.edu
-@date		19/07/2023
+@date		05/06/2023
 
 This file implements functionality useful and necessary to build OpenGL
 applications including use of external APIs such as GLFW to create a
